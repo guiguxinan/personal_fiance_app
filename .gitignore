@@ -31,6 +31,12 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Drift generated files
+*.g.dart
+
+# Temp files
+test_out.txt
+
 # Symbolication related
 app.*.symbols
 

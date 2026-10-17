@@ -27,7 +27,7 @@ class Records extends Table {
 
 @DriftDatabase(tables: [Categories, Records])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
   int get schemaVersion => 1;
