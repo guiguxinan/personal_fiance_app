@@ -55,3 +55,17 @@ CategoryModel? getCategoryById(int id) {
     return null;
   }
 }
+
+// Merge DB categories with defaults, DB categories override defaults with same id
+List<CategoryModel> mergeWithDefaults(List<CategoryModel> dbCategories) {
+  final merged = <int, CategoryModel>{};
+  // Add defaults first
+  for (final c in defaultCategories) {
+    merged[c.id] = c;
+  }
+  // Override with DB categories
+  for (final c in dbCategories) {
+    merged[c.id] = c;
+  }
+  return merged.values.toList();
+}

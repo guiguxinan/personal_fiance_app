@@ -65,6 +65,30 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<Category>> watchAllCategories() => select(categories).watch();
 
+  Future<Category?> getCategoryById(int id) =>
+      (select(categories)..where((c) => c.id.equals(id))).getSingleOrNull();
+
+  Future<int> insertCategory(String name, String icon) =>
+      into(categories).insert(CategoriesCompanion.insert(
+        name: name,
+        icon: icon,
+        isDefault: const Value(false),
+      ));
+
+  Future<bool> updateCategory(int id, String name, String icon) async {
+    final category = await getCategoryById(id);
+    if (category == null) return false;
+    return update(categories).replace(Category(
+      id: category.id,
+      name: name,
+      icon: icon,
+      isDefault: category.isDefault,
+    ));
+  }
+
+  Future<int> deleteCategory(int id) =>
+      (delete(categories)..where((c) => c.id.equals(id))).go();
+
   // Record queries
   Future<List<Record>> getAllRecords() => select(records).get();
 

@@ -5,7 +5,9 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/record_provider.dart';
+import '../category/category_manage_screen.dart';
 import '../record/add_record_screen.dart';
+import '../settings/settings_screen.dart';
 import '../statistics/statistics_screen.dart';
 import 'widgets/monthly_summary_card.dart';
 import 'widgets/category_summary_list.dart';
@@ -247,12 +249,19 @@ class HomeScreen extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          IconButton(
+            icon: const Icon(Icons.category),
+            onPressed: () => _navigateToCategoryManage(context),
+          ),
           const SizedBox(width: 48),
           IconButton(
             icon: const Icon(Icons.bar_chart),
             onPressed: () => _navigateToStatistics(context),
           ),
-          const SizedBox(width: 48),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => _navigateToSettings(context),
+          ),
         ],
       ),
     );
@@ -278,6 +287,22 @@ class HomeScreen extends ConsumerWidget {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => const StatisticsScreen(),
+      ),
+    );
+  }
+
+  void _navigateToCategoryManage(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const CategoryManageScreen(),
+      ),
+    );
+  }
+
+  void _navigateToSettings(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const SettingsScreen(),
       ),
     );
   }
