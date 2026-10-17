@@ -9,10 +9,14 @@ final selectedMonthProvider = StateProvider<DateTime>((ref) {
   return DateTime(now.year, now.month, 1);
 });
 
+// Selected record type provider ('expense' or 'income')
+final selectedTypeProvider = StateProvider<String>((ref) => 'expense');
+
 // Records by month
 final recordsByMonthProvider = StreamProvider<List<Record>>((ref) async* {
   final databaseAsync = ref.watch(databaseProvider);
   final month = ref.watch(selectedMonthProvider);
+  final selectedType = ref.watch(selectedTypeProvider);
 
   final database = await databaseAsync.when(
     data: (db) => db,
@@ -20,7 +24,7 @@ final recordsByMonthProvider = StreamProvider<List<Record>>((ref) async* {
     error: (e, _) => throw e,
   );
 
-  yield* database.watchRecordsByMonth(month);
+  yield* database.watchRecordsByMonthAndType(month, selectedType);
 });
 
 // Categories provider
@@ -38,6 +42,7 @@ final categoriesProvider = FutureProvider<List<Category>>((ref) async {
 final categorySummariesProvider = StreamProvider<Map<int, double>>((ref) async* {
   final databaseAsync = ref.watch(databaseProvider);
   final month = ref.watch(selectedMonthProvider);
+  final selectedType = ref.watch(selectedTypeProvider);
 
   final database = await databaseAsync.when(
     data: (db) => db,
@@ -45,13 +50,14 @@ final categorySummariesProvider = StreamProvider<Map<int, double>>((ref) async* 
     error: (e, _) => throw e,
   );
 
-  yield* database.watchCategorySummariesByMonth(month);
+  yield* database.watchCategorySummariesByMonthAndType(month, selectedType);
 });
 
 // Total spending by month
 final totalSpendingProvider = StreamProvider<double>((ref) async* {
   final databaseAsync = ref.watch(databaseProvider);
   final month = ref.watch(selectedMonthProvider);
+  final selectedType = ref.watch(selectedTypeProvider);
 
   final database = await databaseAsync.when(
     data: (db) => db,
@@ -59,7 +65,23 @@ final totalSpendingProvider = StreamProvider<double>((ref) async* {
     error: (e, _) => throw e,
   );
 
-  yield* database.watchTotalSpendingByMonth(month);
+  yield* database.watchTotalByMonthAndType(month, selectedType);
+});
+
+// 上月同类型总额（首页总览卡片环比用）
+final prevMonthTotalProvider = StreamProvider<double>((ref) async* {
+  final databaseAsync = ref.watch(databaseProvider);
+  final month = ref.watch(selectedMonthProvider);
+  final selectedType = ref.watch(selectedTypeProvider);
+
+  final database = await databaseAsync.when(
+    data: (db) => db,
+    loading: () => throw Exception('Database loading'),
+    error: (e, _) => throw e,
+  );
+
+  final prevMonth = DateTime(month.year, month.month - 1, 1);
+  yield* database.watchTotalByMonthAndType(prevMonth, selectedType);
 });
 
 // Category list (static from default categories)

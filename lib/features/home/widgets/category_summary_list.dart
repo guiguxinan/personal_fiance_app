@@ -1,78 +1,105 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_typography.dart';
-import '../../../../core/utils/currency_formatter.dart';
-import '../../../../data/models/category_model.dart';
+import '../../../../data/database/app_database.dart';
 
+/// 首页分类概览（严格对齐原型「轻记 V2」）：
+/// 无外层容器，直接 4 列白色小 chip：图标 + 名称 + 纯数字金额（无符号、整数）
+///
+/// 颜色与图标来源：[Category]（Drift 实体，含 type/color/icon 字段），
+/// 由父组件按当前 type 过滤后传入，覆盖 8 支出 + 5 收入全量。
 class CategorySummaryList extends StatelessWidget {
   final Map<int, double> summaries;
+  final List<Category> categories;
 
   const CategorySummaryList({
     super.key,
     required this.summaries,
+    required this.categories,
   });
 
   @override
   Widget build(BuildContext context) {
     if (summaries.isEmpty) {
-      return const SizedBox.shrink();
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 10),
+        child: Text(
+          '本月暂无记录',
+          style: TextStyle(fontSize: 12, color: AppColors.textHint),
+          textAlign: TextAlign.center,
+        ),
+      );
     }
 
-    // Sort by amount descending
+    // 按 id 建索引 → O(1) 查找
+    final byId = {for (final c in categories) c.id: c};
+
+    // Sort by amount descending and take top 4
     final sortedEntries = summaries.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
+    final top4Entries = sortedEntries.take(4).toList();
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 6,
+        mainAxisSpacing: 6,
+        childAspectRatio: 1.6,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '分类支出',
-            style: AppTypography.titleMedium,
-          ),
-          const SizedBox(height: 12),
-          ...sortedEntries.map((entry) {
-            final category = getCategoryById(entry.key);
-            if (category == null) return const SizedBox.shrink();
+      itemCount: top4Entries.length,
+      itemBuilder: (context, index) {
+        final entry = top4Entries[index];
+        final category = byId[entry.key];
+        if (category == null) return const SizedBox.shrink();
 
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  Text(
-                    category.icon,
-                    style: const TextStyle(fontSize: 20),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      category.name,
-                      style: AppTypography.bodyLarge,
-                    ),
-                  ),
-                  Text(
-                    '-${CurrencyFormatter.format(entry.value)}',
-                    style: AppTypography.amountMedium,
-                  ),
-                ],
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0x0A1F2A27),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
-            );
-          }),
-        ],
-      ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                category.icon,
+                style: const TextStyle(fontSize: 18),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                category.name,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: AppColors.textSecondary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 1),
+              Text(
+                // 原型为纯数字整数（如 129），无 ¥、无符号
+                entry.value.round().toString(),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

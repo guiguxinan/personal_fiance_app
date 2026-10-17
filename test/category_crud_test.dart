@@ -18,7 +18,7 @@ void main() {
     expect(id, greaterThan(0));
 
     final categories = await db.getAllCategories();
-    expect(categories.length, 9); // 8 defaults + 1 custom
+    expect(categories.length, 14); // 13 defaults (8 expense + 5 income) + 1 custom
   });
 
   test('更新自定义分类', () async {
@@ -40,13 +40,13 @@ void main() {
     expect(deleted, 1);
 
     final categories = await db.getAllCategories();
-    expect(categories.length, 8); // back to 8 defaults
+    expect(categories.length, 13); // back to 13 defaults
   });
 
   test('watchAllCategories 流式监听', () async {
     // Stream should emit initial value
     final stream = db.watchAllCategories().first;
     final results = await stream;
-    expect(results.length, 8); // initial 8 defaults
+    expect(results.length, 13); // initial 13 defaults
   });
 }

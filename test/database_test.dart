@@ -14,13 +14,18 @@ void main() {
     await db.close();
   });
 
-  test('建库时自动创建 8 个默认分类', () async {
+  test('建库时自动创建 13 个默认分类', () async {
     final categories = await db.getAllCategories();
-    expect(categories.length, 8);
+    expect(categories.length, 13);
     expect(categories.first.name, '餐饮');
     expect(categories.first.icon, '🍜');
     final names = categories.map((c) => c.name).toList();
     expect(names, containsAll(['餐饮', '交通', '购物', '娱乐', '居住', '医疗', '教育', '其他']));
+    expect(names, containsAll(['工资', '奖金', '理财', '兼职']));
+    final expenseCount = categories.where((c) => c.type == 'expense').length;
+    final incomeCount = categories.where((c) => c.type == 'income').length;
+    expect(expenseCount, 8);
+    expect(incomeCount, 5);
   });
 
   test('插入记录并读取，字段完整', () async {

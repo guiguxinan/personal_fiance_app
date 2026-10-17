@@ -34,6 +34,20 @@ class $CategoriesTable extends Categories
           GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 10),
       type: DriftSqlType.string,
       requiredDuringInsert: true);
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+      'type', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('expense'));
+  static const VerificationMeta _colorMeta = const VerificationMeta('color');
+  @override
+  late final GeneratedColumn<String> color = GeneratedColumn<String>(
+      'color', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('#A89AA0'));
   static const VerificationMeta _isDefaultMeta =
       const VerificationMeta('isDefault');
   @override
@@ -45,7 +59,8 @@ class $CategoriesTable extends Categories
           GeneratedColumn.constraintIsAlways('CHECK ("is_default" IN (0, 1))'),
       defaultValue: const Constant(true));
   @override
-  List<GeneratedColumn> get $columns => [id, name, icon, isDefault];
+  List<GeneratedColumn> get $columns =>
+      [id, name, icon, type, color, isDefault];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -71,6 +86,14 @@ class $CategoriesTable extends Categories
     } else if (isInserting) {
       context.missing(_iconMeta);
     }
+    if (data.containsKey('type')) {
+      context.handle(
+          _typeMeta, type.isAcceptableOrUnknown(data['type']!, _typeMeta));
+    }
+    if (data.containsKey('color')) {
+      context.handle(
+          _colorMeta, color.isAcceptableOrUnknown(data['color']!, _colorMeta));
+    }
     if (data.containsKey('is_default')) {
       context.handle(_isDefaultMeta,
           isDefault.isAcceptableOrUnknown(data['is_default']!, _isDefaultMeta));
@@ -90,6 +113,10 @@ class $CategoriesTable extends Categories
           .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
       icon: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}icon'])!,
+      type: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}type'])!,
+      color: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}color'])!,
       isDefault: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_default'])!,
     );
@@ -105,11 +132,15 @@ class Category extends DataClass implements Insertable<Category> {
   final int id;
   final String name;
   final String icon;
+  final String type;
+  final String color;
   final bool isDefault;
   const Category(
       {required this.id,
       required this.name,
       required this.icon,
+      required this.type,
+      required this.color,
       required this.isDefault});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -117,6 +148,8 @@ class Category extends DataClass implements Insertable<Category> {
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
     map['icon'] = Variable<String>(icon);
+    map['type'] = Variable<String>(type);
+    map['color'] = Variable<String>(color);
     map['is_default'] = Variable<bool>(isDefault);
     return map;
   }
@@ -126,6 +159,8 @@ class Category extends DataClass implements Insertable<Category> {
       id: Value(id),
       name: Value(name),
       icon: Value(icon),
+      type: Value(type),
+      color: Value(color),
       isDefault: Value(isDefault),
     );
   }
@@ -137,6 +172,8 @@ class Category extends DataClass implements Insertable<Category> {
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       icon: serializer.fromJson<String>(json['icon']),
+      type: serializer.fromJson<String>(json['type']),
+      color: serializer.fromJson<String>(json['color']),
       isDefault: serializer.fromJson<bool>(json['isDefault']),
     );
   }
@@ -147,15 +184,25 @@ class Category extends DataClass implements Insertable<Category> {
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
       'icon': serializer.toJson<String>(icon),
+      'type': serializer.toJson<String>(type),
+      'color': serializer.toJson<String>(color),
       'isDefault': serializer.toJson<bool>(isDefault),
     };
   }
 
-  Category copyWith({int? id, String? name, String? icon, bool? isDefault}) =>
+  Category copyWith(
+          {int? id,
+          String? name,
+          String? icon,
+          String? type,
+          String? color,
+          bool? isDefault}) =>
       Category(
         id: id ?? this.id,
         name: name ?? this.name,
         icon: icon ?? this.icon,
+        type: type ?? this.type,
+        color: color ?? this.color,
         isDefault: isDefault ?? this.isDefault,
       );
   Category copyWithCompanion(CategoriesCompanion data) {
@@ -163,6 +210,8 @@ class Category extends DataClass implements Insertable<Category> {
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       icon: data.icon.present ? data.icon.value : this.icon,
+      type: data.type.present ? data.type.value : this.type,
+      color: data.color.present ? data.color.value : this.color,
       isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
     );
   }
@@ -173,13 +222,15 @@ class Category extends DataClass implements Insertable<Category> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('icon: $icon, ')
+          ..write('type: $type, ')
+          ..write('color: $color, ')
           ..write('isDefault: $isDefault')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, icon, isDefault);
+  int get hashCode => Object.hash(id, name, icon, type, color, isDefault);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -187,6 +238,8 @@ class Category extends DataClass implements Insertable<Category> {
           other.id == this.id &&
           other.name == this.name &&
           other.icon == this.icon &&
+          other.type == this.type &&
+          other.color == this.color &&
           other.isDefault == this.isDefault);
 }
 
@@ -194,17 +247,23 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   final Value<int> id;
   final Value<String> name;
   final Value<String> icon;
+  final Value<String> type;
+  final Value<String> color;
   final Value<bool> isDefault;
   const CategoriesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.icon = const Value.absent(),
+    this.type = const Value.absent(),
+    this.color = const Value.absent(),
     this.isDefault = const Value.absent(),
   });
   CategoriesCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     required String icon,
+    this.type = const Value.absent(),
+    this.color = const Value.absent(),
     this.isDefault = const Value.absent(),
   })  : name = Value(name),
         icon = Value(icon);
@@ -212,12 +271,16 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     Expression<int>? id,
     Expression<String>? name,
     Expression<String>? icon,
+    Expression<String>? type,
+    Expression<String>? color,
     Expression<bool>? isDefault,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (icon != null) 'icon': icon,
+      if (type != null) 'type': type,
+      if (color != null) 'color': color,
       if (isDefault != null) 'is_default': isDefault,
     });
   }
@@ -226,11 +289,15 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       {Value<int>? id,
       Value<String>? name,
       Value<String>? icon,
+      Value<String>? type,
+      Value<String>? color,
       Value<bool>? isDefault}) {
     return CategoriesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       icon: icon ?? this.icon,
+      type: type ?? this.type,
+      color: color ?? this.color,
       isDefault: isDefault ?? this.isDefault,
     );
   }
@@ -247,6 +314,12 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     if (icon.present) {
       map['icon'] = Variable<String>(icon.value);
     }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (color.present) {
+      map['color'] = Variable<String>(color.value);
+    }
     if (isDefault.present) {
       map['is_default'] = Variable<bool>(isDefault.value);
     }
@@ -259,6 +332,8 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('icon: $icon, ')
+          ..write('type: $type, ')
+          ..write('color: $color, ')
           ..write('isDefault: $isDefault')
           ..write(')'))
         .toString();
@@ -306,6 +381,13 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, Record> {
       additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 100),
       type: DriftSqlType.string,
       requiredDuringInsert: false);
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+      'type', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('expense'));
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -324,7 +406,7 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, Record> {
       defaultValue: currentDateAndTime);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, amount, categoryId, recordDate, note, createdAt, updatedAt];
+      [id, amount, categoryId, recordDate, note, type, createdAt, updatedAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -364,6 +446,10 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, Record> {
       context.handle(
           _noteMeta, note.isAcceptableOrUnknown(data['note']!, _noteMeta));
     }
+    if (data.containsKey('type')) {
+      context.handle(
+          _typeMeta, type.isAcceptableOrUnknown(data['type']!, _typeMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -391,6 +477,8 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, Record> {
           .read(DriftSqlType.dateTime, data['${effectivePrefix}record_date'])!,
       note: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}note']),
+      type: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}type'])!,
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -410,6 +498,7 @@ class Record extends DataClass implements Insertable<Record> {
   final int categoryId;
   final DateTime recordDate;
   final String? note;
+  final String type;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Record(
@@ -418,6 +507,7 @@ class Record extends DataClass implements Insertable<Record> {
       required this.categoryId,
       required this.recordDate,
       this.note,
+      required this.type,
       required this.createdAt,
       required this.updatedAt});
   @override
@@ -430,6 +520,7 @@ class Record extends DataClass implements Insertable<Record> {
     if (!nullToAbsent || note != null) {
       map['note'] = Variable<String>(note);
     }
+    map['type'] = Variable<String>(type);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -442,6 +533,7 @@ class Record extends DataClass implements Insertable<Record> {
       categoryId: Value(categoryId),
       recordDate: Value(recordDate),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      type: Value(type),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -456,6 +548,7 @@ class Record extends DataClass implements Insertable<Record> {
       categoryId: serializer.fromJson<int>(json['categoryId']),
       recordDate: serializer.fromJson<DateTime>(json['recordDate']),
       note: serializer.fromJson<String?>(json['note']),
+      type: serializer.fromJson<String>(json['type']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -469,6 +562,7 @@ class Record extends DataClass implements Insertable<Record> {
       'categoryId': serializer.toJson<int>(categoryId),
       'recordDate': serializer.toJson<DateTime>(recordDate),
       'note': serializer.toJson<String?>(note),
+      'type': serializer.toJson<String>(type),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -480,6 +574,7 @@ class Record extends DataClass implements Insertable<Record> {
           int? categoryId,
           DateTime? recordDate,
           Value<String?> note = const Value.absent(),
+          String? type,
           DateTime? createdAt,
           DateTime? updatedAt}) =>
       Record(
@@ -488,6 +583,7 @@ class Record extends DataClass implements Insertable<Record> {
         categoryId: categoryId ?? this.categoryId,
         recordDate: recordDate ?? this.recordDate,
         note: note.present ? note.value : this.note,
+        type: type ?? this.type,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
@@ -500,6 +596,7 @@ class Record extends DataClass implements Insertable<Record> {
       recordDate:
           data.recordDate.present ? data.recordDate.value : this.recordDate,
       note: data.note.present ? data.note.value : this.note,
+      type: data.type.present ? data.type.value : this.type,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -513,6 +610,7 @@ class Record extends DataClass implements Insertable<Record> {
           ..write('categoryId: $categoryId, ')
           ..write('recordDate: $recordDate, ')
           ..write('note: $note, ')
+          ..write('type: $type, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -521,7 +619,7 @@ class Record extends DataClass implements Insertable<Record> {
 
   @override
   int get hashCode => Object.hash(
-      id, amount, categoryId, recordDate, note, createdAt, updatedAt);
+      id, amount, categoryId, recordDate, note, type, createdAt, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -531,6 +629,7 @@ class Record extends DataClass implements Insertable<Record> {
           other.categoryId == this.categoryId &&
           other.recordDate == this.recordDate &&
           other.note == this.note &&
+          other.type == this.type &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -541,6 +640,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
   final Value<int> categoryId;
   final Value<DateTime> recordDate;
   final Value<String?> note;
+  final Value<String> type;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   const RecordsCompanion({
@@ -549,6 +649,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
     this.categoryId = const Value.absent(),
     this.recordDate = const Value.absent(),
     this.note = const Value.absent(),
+    this.type = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
@@ -558,6 +659,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
     required int categoryId,
     required DateTime recordDate,
     this.note = const Value.absent(),
+    this.type = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   })  : amount = Value(amount),
@@ -569,6 +671,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
     Expression<int>? categoryId,
     Expression<DateTime>? recordDate,
     Expression<String>? note,
+    Expression<String>? type,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
   }) {
@@ -578,6 +681,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
       if (categoryId != null) 'category_id': categoryId,
       if (recordDate != null) 'record_date': recordDate,
       if (note != null) 'note': note,
+      if (type != null) 'type': type,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
@@ -589,6 +693,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
       Value<int>? categoryId,
       Value<DateTime>? recordDate,
       Value<String?>? note,
+      Value<String>? type,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt}) {
     return RecordsCompanion(
@@ -597,6 +702,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
       categoryId: categoryId ?? this.categoryId,
       recordDate: recordDate ?? this.recordDate,
       note: note ?? this.note,
+      type: type ?? this.type,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -620,6 +726,9 @@ class RecordsCompanion extends UpdateCompanion<Record> {
     if (note.present) {
       map['note'] = Variable<String>(note.value);
     }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -637,6 +746,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
           ..write('categoryId: $categoryId, ')
           ..write('recordDate: $recordDate, ')
           ..write('note: $note, ')
+          ..write('type: $type, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -660,12 +770,16 @@ typedef $$CategoriesTableCreateCompanionBuilder = CategoriesCompanion Function({
   Value<int> id,
   required String name,
   required String icon,
+  Value<String> type,
+  Value<String> color,
   Value<bool> isDefault,
 });
 typedef $$CategoriesTableUpdateCompanionBuilder = CategoriesCompanion Function({
   Value<int> id,
   Value<String> name,
   Value<String> icon,
+  Value<String> type,
+  Value<String> color,
   Value<bool> isDefault,
 });
 
@@ -676,12 +790,11 @@ final class $$CategoriesTableReferences
   static MultiTypedResultKey<$RecordsTable, List<Record>> _recordsRefsTable(
           _$AppDatabase db) =>
       MultiTypedResultKey.fromTable(db.records,
-          aliasName:
-              $_aliasNameGenerator(db.categories.id, db.records.categoryId));
+          aliasName: 'categories__id__records__category_id');
 
   $$RecordsTableProcessedTableManager get recordsRefs {
     final manager = $$RecordsTableTableManager($_db, $_db.records)
-        .filter((f) => f.categoryId.id($_item.id));
+        .filter((f) => f.categoryId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_recordsRefsTable($_db));
     return ProcessedTableManager(
@@ -706,6 +819,12 @@ class $$CategoriesTableFilterComposer
 
   ColumnFilters<String> get icon => $composableBuilder(
       column: $table.icon, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get type => $composableBuilder(
+      column: $table.type, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get color => $composableBuilder(
+      column: $table.color, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get isDefault => $composableBuilder(
       column: $table.isDefault, builder: (column) => ColumnFilters(column));
@@ -750,6 +869,12 @@ class $$CategoriesTableOrderingComposer
   ColumnOrderings<String> get icon => $composableBuilder(
       column: $table.icon, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get type => $composableBuilder(
+      column: $table.type, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get color => $composableBuilder(
+      column: $table.color, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get isDefault => $composableBuilder(
       column: $table.isDefault, builder: (column) => ColumnOrderings(column));
 }
@@ -771,6 +896,12 @@ class $$CategoriesTableAnnotationComposer
 
   GeneratedColumn<String> get icon =>
       $composableBuilder(column: $table.icon, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get color =>
+      $composableBuilder(column: $table.color, builder: (column) => column);
 
   GeneratedColumn<bool> get isDefault =>
       $composableBuilder(column: $table.isDefault, builder: (column) => column);
@@ -823,29 +954,37 @@ class $$CategoriesTableTableManager extends RootTableManager<
             Value<int> id = const Value.absent(),
             Value<String> name = const Value.absent(),
             Value<String> icon = const Value.absent(),
+            Value<String> type = const Value.absent(),
+            Value<String> color = const Value.absent(),
             Value<bool> isDefault = const Value.absent(),
           }) =>
               CategoriesCompanion(
             id: id,
             name: name,
             icon: icon,
+            type: type,
+            color: color,
             isDefault: isDefault,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
             required String name,
             required String icon,
+            Value<String> type = const Value.absent(),
+            Value<String> color = const Value.absent(),
             Value<bool> isDefault = const Value.absent(),
           }) =>
               CategoriesCompanion.insert(
             id: id,
             name: name,
             icon: icon,
+            type: type,
+            color: color,
             isDefault: isDefault,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
-                    e.readTable(table),
+                    e.readTable<$CategoriesTable, Category>(table),
                     $$CategoriesTableReferences(db, table, e)
                   ))
               .toList(),
@@ -857,7 +996,8 @@ class $$CategoriesTableTableManager extends RootTableManager<
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (recordsRefs)
-                    await $_getPrefetchedData(
+                    await $_getPrefetchedData<Category, $CategoriesTable,
+                            Record>(
                         currentTable: table,
                         referencedTable:
                             $$CategoriesTableReferences._recordsRefsTable(db),
@@ -893,6 +1033,7 @@ typedef $$RecordsTableCreateCompanionBuilder = RecordsCompanion Function({
   required int categoryId,
   required DateTime recordDate,
   Value<String?> note,
+  Value<String> type,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
 });
@@ -902,6 +1043,7 @@ typedef $$RecordsTableUpdateCompanionBuilder = RecordsCompanion Function({
   Value<int> categoryId,
   Value<DateTime> recordDate,
   Value<String?> note,
+  Value<String> type,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
 });
@@ -911,12 +1053,13 @@ final class $$RecordsTableReferences
   $$RecordsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static $CategoriesTable _categoryIdTable(_$AppDatabase db) =>
-      db.categories.createAlias(
-          $_aliasNameGenerator(db.records.categoryId, db.categories.id));
+      db.categories.createAlias('records__category_id__categories__id');
 
   $$CategoriesTableProcessedTableManager get categoryId {
+    final $_column = $_itemColumn<int>('category_id')!;
+
     final manager = $$CategoriesTableTableManager($_db, $_db.categories)
-        .filter((f) => f.id($_item.categoryId));
+        .filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_categoryIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
@@ -944,6 +1087,9 @@ class $$RecordsTableFilterComposer
 
   ColumnFilters<String> get note => $composableBuilder(
       column: $table.note, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get type => $composableBuilder(
+      column: $table.type, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -993,6 +1139,9 @@ class $$RecordsTableOrderingComposer
   ColumnOrderings<String> get note => $composableBuilder(
       column: $table.note, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get type => $composableBuilder(
+      column: $table.type, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -1040,6 +1189,9 @@ class $$RecordsTableAnnotationComposer
 
   GeneratedColumn<String> get note =>
       $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -1096,6 +1248,7 @@ class $$RecordsTableTableManager extends RootTableManager<
             Value<int> categoryId = const Value.absent(),
             Value<DateTime> recordDate = const Value.absent(),
             Value<String?> note = const Value.absent(),
+            Value<String> type = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
           }) =>
@@ -1105,6 +1258,7 @@ class $$RecordsTableTableManager extends RootTableManager<
             categoryId: categoryId,
             recordDate: recordDate,
             note: note,
+            type: type,
             createdAt: createdAt,
             updatedAt: updatedAt,
           ),
@@ -1114,6 +1268,7 @@ class $$RecordsTableTableManager extends RootTableManager<
             required int categoryId,
             required DateTime recordDate,
             Value<String?> note = const Value.absent(),
+            Value<String> type = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
           }) =>
@@ -1123,12 +1278,15 @@ class $$RecordsTableTableManager extends RootTableManager<
             categoryId: categoryId,
             recordDate: recordDate,
             note: note,
+            type: type,
             createdAt: createdAt,
             updatedAt: updatedAt,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) =>
-                  (e.readTable(table), $$RecordsTableReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$RecordsTable, Record>(table),
+                    $$RecordsTableReferences(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: ({categoryId = false}) {
             return PrefetchHooks(

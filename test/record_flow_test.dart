@@ -35,10 +35,19 @@ void main() {
   /// 在真实异步环境中等候数据库 stream 完成首次 emit，
   /// 再切回 FakeAsync 做交互断言。
   Future<void> pumpApp(WidgetTester tester) async {
+    // 扩大测试视口，避免记账页（类型切换 + 金额区 + 分类网格 + 备注 + 9 宫格数字键盘）超出 800×600 默认视口
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
     await tester.runAsync(() async {
       await tester.pumpWidget(buildApp());
       // 留出真实事件循环时间，让 drift 完成建表/分类初始化/stream 首帧
-      await Future<void>.delayed(const Duration(milliseconds: 300));
+      // 加 categoriesStreamProvider 的首次 emit 时间
+      await Future<void>.delayed(const Duration(milliseconds: 800));
     });
     await tester.pumpAndSettle();
   }
@@ -58,12 +67,12 @@ void main() {
     await pumpApp(tester);
 
     // 初始为空状态
-    expect(find.text('还没有记录'), findsOneWidget);
+    expect(find.text('还没有记录，点下方 + 记一笔吧～'), findsOneWidget);
 
     // 点击悬浮 + 按钮进入记账页
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byKey(const Key('fab')));
     await tester.pumpAndSettle();
-    expect(find.text('记账'), findsOneWidget);
+    expect(find.text('记一笔'), findsOneWidget);
 
     // 保存按钮初始禁用（未填金额/未选分类）
     final initialSave = tester.widget<ElevatedButton>(
@@ -71,8 +80,15 @@ void main() {
     );
     expect(initialSave.onPressed, isNull);
 
-    // 输入金额 45.5
-    await tester.enterText(find.byType(TextField).first, '45.5');
+    // 输入金额 45.5（点击九宫格数字键盘：4 → 5 → . → 5）
+    // 注意：第一个 TextField 现在是备注，金额必须通过数字键盘点击
+    await tester.tap(find.text('4'));
+    await tester.pump();
+    await tester.tap(find.text('5'));
+    await tester.pump();
+    await tester.tap(find.text('.'));
+    await tester.pump();
+    await tester.tap(find.text('5'));
     await tester.pump();
 
     // 选择分类「餐饮」
@@ -94,8 +110,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // 首页展示新记录
-    expect(find.text('记账成功'), findsOneWidget); // SnackBar 提示
-    expect(find.text('还没有记录'), findsNothing);
+    expect(find.text('支出已记录 ✓'), findsOneWidget); // SnackBar 提示
+    expect(find.text('还没有记录，点下方 + 记一笔吧～'), findsNothing);
     expect(find.text('餐饮'), findsWidgets); // 分类汇总 + 记录列表
     expect(find.textContaining('45.5'), findsWidgets);
 
@@ -105,11 +121,11 @@ void main() {
   testWidgets('关闭记账页：未输入内容时直接返回，不弹确认框', (tester) async {
     await pumpApp(tester);
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byKey(const Key('fab')));
     await tester.pumpAndSettle();
 
     // 点击关闭
-    await tester.tap(find.byIcon(Icons.close));
+    await tester.tap(find.byKey(const Key('close-btn')));
     await tester.pumpAndSettle();
 
     // 回到首页，无确认对话框

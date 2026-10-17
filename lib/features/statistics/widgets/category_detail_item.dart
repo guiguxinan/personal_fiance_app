@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
-import '../../../../data/models/category_model.dart';
+import '../../../../data/database/app_database.dart';
 
+/// 统计页分类明细行：色点 + 图标 + 名称 + 金额 + 占比 + 进度条。
+/// 颜色取自 [Category.color]（HEX）。
 class CategoryDetailItem extends StatelessWidget {
-  final CategoryModel category;
+  final Category category;
   final double amount;
   final double percentage;
 
@@ -18,10 +20,7 @@ class CategoryDetailItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorIndex = defaultCategories.indexOf(category);
-    final color = colorIndex >= 0 && colorIndex < AppColors.categoryColors.length
-        ? AppColors.categoryColors[colorIndex]
-        : AppColors.primary;
+    final color = _parseHexColor(category.color) ?? AppColors.primary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -29,6 +28,15 @@ class CategoryDetailItem extends StatelessWidget {
         children: [
           Row(
             children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
               Text(
                 category.icon,
                 style: const TextStyle(fontSize: 20),
@@ -70,5 +78,14 @@ class CategoryDetailItem extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Color? _parseHexColor(String? hex) {
+    if (hex == null || hex.isEmpty) return null;
+    var s = hex.replaceFirst('#', '').trim();
+    if (s.length == 6) s = 'FF$s';
+    if (s.length != 8) return null;
+    final v = int.tryParse(s, radix: 16);
+    return v == null ? null : Color(v);
   }
 }

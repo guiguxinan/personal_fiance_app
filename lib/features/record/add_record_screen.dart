@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
-import '../../data/models/category_model.dart';
 import '../../data/database/app_database.dart';
+import '../../providers/category_provider.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/record_provider.dart';
 
 class AddRecordScreen extends ConsumerStatefulWidget {
   final Record? recordToEdit;
@@ -19,10 +18,12 @@ class AddRecordScreen extends ConsumerStatefulWidget {
 }
 
 class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
-  final _amountController = TextEditingController();
+  /// 九宫格数字键盘输入的原始字符串（含小数点，最多 9 位）。
+  /// 替代原来的 _amountController + TextField。
+  String _amountInput = '';
   final _noteController = TextEditingController();
   int? _selectedCategoryId;
-  DateTime _selectedDate = DateTime.now();
+  String _recordType = 'expense'; // 'expense' or 'income'
   bool _isEditing = false;
 
   @override
@@ -30,22 +31,21 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
     super.initState();
     if (widget.recordToEdit != null) {
       _isEditing = true;
-      _amountController.text = widget.recordToEdit!.amount.toStringAsFixed(2);
+      _amountInput = widget.recordToEdit!.amount.toStringAsFixed(2);
       _selectedCategoryId = widget.recordToEdit!.categoryId;
-      _selectedDate = widget.recordToEdit!.recordDate;
+      _recordType = widget.recordToEdit!.type;
       _noteController.text = widget.recordToEdit!.note ?? '';
     }
   }
 
   @override
   void dispose() {
-    _amountController.dispose();
     _noteController.dispose();
     super.dispose();
   }
 
   bool get _canSave {
-    final amount = double.tryParse(_amountController.text) ?? 0;
+    final amount = double.tryParse(_amountInput) ?? 0;
     return amount > 0 && _selectedCategoryId != null;
   }
 
@@ -57,192 +57,305 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
         backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
+          key: const Key('close-btn'),
           icon: const Icon(Icons.close),
           onPressed: () => _confirmExit(context),
         ),
         title: Text(
-          _isEditing ? '编辑记录' : '记账',
+          '记一笔',
           style: AppTypography.titleLarge,
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Amount input
-            _buildAmountInput(),
+      body: Column(
+        children: [
+          // 顶部内容区（可滚动）：切换、金额、分类、备注
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Type toggle
+                  _buildTypeToggle(),
 
-            // Category selection
-            _buildCategoryGrid(),
+                  // 金额显示（数字由 _amountInput 驱动，仅展示，不可点击编辑）
+                  _buildAmountDisplay(),
 
-            // Date picker
-            _buildDatePicker(),
+                  // Category selection
+                  _buildCategoryGrid(),
 
-            // Note input
-            _buildNoteInput(),
+                  // 备注输入（最多 100 字）
+                  _buildNoteInput(),
 
-            const SizedBox(height: 32),
-          ],
-        ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ),
+          // 九宫格数字键盘（固定底部，始终可见，对齐原型 numpad）
+          _buildNumpad(),
+        ],
       ),
       bottomNavigationBar: _buildBottomBar(),
     );
   }
 
-  Widget _buildAmountInput() {
+  Widget _buildTypeToggle() {
     return Container(
       color: AppColors.surface,
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      child: Center(
-        child: Column(
-          children: [
-            Text(
-              '¥',
-              style: TextStyle(
-                fontSize: 24,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            IntrinsicWidth(
-              child: TextField(
-                controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                textAlign: TextAlign.center,
-                style: AppTypography.amountLarge.copyWith(
-                  fontSize: 48,
-                  color: AppColors.expense,
-                ),
-                decoration: InputDecoration(
-                  hintText: '0.00',
-                  hintStyle: AppTypography.amountLarge.copyWith(
-                    fontSize: 48,
-                    color: AppColors.textHint,
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-                ],
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-          ],
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _buildTypeButton('支出', 'expense'),
+          const SizedBox(width: 16),
+          _buildTypeButton('收入', 'income'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTypeButton(String label, String type) {
+    final isSelected = _recordType == type;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          if (_recordType != type) {
+            _recordType = type;
+            _selectedCategoryId = null; // Clear category when switching type
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.background,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.titleMedium.copyWith(
+            color: isSelected ? Colors.white : AppColors.textSecondary,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildCategoryGrid() {
+  /// 金额显示区：¥ + 大字金额（来自 _amountInput）+ 闪烁光标。
+  /// 不可编辑，纯展示；编辑通过下方九宫格键盘。
+  Widget _buildAmountDisplay() {
     return Container(
       color: AppColors.surface,
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 12),
-            child: Text('选择分类', style: AppTypography.titleMedium),
-          ),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              childAspectRatio: 1,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+          Text(
+            '金额（元）',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textHint,
             ),
-            itemCount: defaultCategories.length,
-            itemBuilder: (context, index) {
-              final category = defaultCategories[index];
-              final isSelected = _selectedCategoryId == category.id;
-
-              return GestureDetector(
-                onTap: () => setState(() => _selectedCategoryId = category.id),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColors.primary.withOpacity(0.1)
-                        : AppColors.background,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        category.icon,
-                        style: const TextStyle(fontSize: 24),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        category.name,
-                        style: AppTypography.labelSmall.copyWith(
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '¥',
+                style: const TextStyle(
+                  fontSize: 24,
+                  color: AppColors.textHint,
                 ),
-              );
-            },
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _amountInput.isEmpty ? '0' : _amountInput,
+                style: const TextStyle(
+                  fontSize: 42,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                  letterSpacing: -1,
+                ),
+              ),
+              // 闪烁光标
+              _BlinkingCursor(),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDatePicker() {
-    final dateFormat = DateFormat('yyyy年MM月dd日', 'zh_CN');
-
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      margin: const EdgeInsets.only(top: 8),
-      child: Row(
-        children: [
-          const Icon(Icons.calendar_today, color: AppColors.textSecondary),
-          const SizedBox(width: 12),
-          Text('日期', style: AppTypography.bodyLarge),
-          const Spacer(),
-          TextButton(
-            onPressed: () => _selectDate(context),
-            child: Text(
-              dateFormat.format(_selectedDate),
-              style: AppTypography.bodyLarge.copyWith(
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-        ],
+  /// 九宫格数字键盘：3 列 × 4 行 = 12 键。
+  /// 1 2 3 / 4 5 6 / 7 8 9 / . 0 ⌫
+  Widget _buildNumpad() {
+    final keys = <_NumpadKey>[
+      const _NumpadKey('1'),
+      const _NumpadKey('2'),
+      const _NumpadKey('3'),
+      const _NumpadKey('4'),
+      const _NumpadKey('5'),
+      const _NumpadKey('6'),
+      const _NumpadKey('7'),
+      const _NumpadKey('8'),
+      const _NumpadKey('9'),
+      const _NumpadKey('.'),
+      const _NumpadKey('0'),
+      const _NumpadKey.del(),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: GridView.count(
+        crossAxisCount: 3,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        childAspectRatio: 2.4,
+        mainAxisSpacing: 6,
+        crossAxisSpacing: 6,
+        children: keys.map((k) => _buildNumpadKey(k)).toList(),
       ),
+    );
+  }
+
+  Widget _buildNumpadKey(_NumpadKey k) {
+    final isDel = k.value == 'del';
+    return GestureDetector(
+      onTap: () => _onNumpadTap(k.value),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          k.display,
+          style: TextStyle(
+            fontSize: isDel ? 18 : 20,
+            fontWeight: FontWeight.w500,
+            color: isDel ? AppColors.textHint : AppColors.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 处理数字键盘按键：
+  /// - 限制总长度 9 位
+  /// - 小数点仅允许一个
+  /// - del 退格
+  void _onNumpadTap(String key) {
+    setState(() {
+      if (key == 'del') {
+        if (_amountInput.isNotEmpty) {
+          _amountInput = _amountInput.substring(0, _amountInput.length - 1);
+        }
+        return;
+      }
+      if (_amountInput.length >= 9) return;
+      if (key == '.' && _amountInput.contains('.')) return;
+      _amountInput += key;
+    });
+  }
+
+  Widget _buildCategoryGrid() {
+    final categoriesAsync = ref.watch(categoriesStreamProvider);
+
+    return categoriesAsync.when(
+      data: (categories) {
+        // Filter categories by current type
+        final filteredCategories = categories.where((c) => c.type == _recordType).toList();
+        final count = filteredCategories.length;
+        final typeLabel = _recordType == 'expense' ? '支出' : '收入';
+
+        return Container(
+          color: AppColors.surface,
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(top: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 12),
+                child: Text('选择分类（$typeLabel $count 类）', style: AppTypography.titleMedium),
+              ),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  childAspectRatio: 1,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: filteredCategories.length,
+                itemBuilder: (context, index) {
+                  final category = filteredCategories[index];
+                  final isSelected = _selectedCategoryId == category.id;
+
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedCategoryId = category.id),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary.withValues(alpha: 0.1)
+                            : AppColors.background,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? AppColors.primary : Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            category.icon,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            category.name,
+                            style: AppTypography.labelSmall.copyWith(
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const Center(child: Text('加载分类失败')),
     );
   }
 
   Widget _buildNoteInput() {
     return Container(
       color: AppColors.surface,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       margin: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('备注', style: AppTypography.titleMedium),
-          const SizedBox(height: 12),
+          Text('备注（选填）', style: AppTypography.titleMedium),
+          const SizedBox(height: 8),
           TextField(
             controller: _noteController,
-            maxLines: 3,
+            maxLines: 2,
             maxLength: 100,
             decoration: InputDecoration(
-              hintText: '选填，最多100字...',
+              hintText: '备注（选填）...',
               hintStyle: AppTypography.bodyMedium,
               filled: true,
               fillColor: AppColors.background,
@@ -271,7 +384,7 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
         color: AppColors.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -284,7 +397,7 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
           onPressed: _canSave ? _saveRecord : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
-            disabledBackgroundColor: AppColors.textHint.withOpacity(0.3),
+            disabledBackgroundColor: AppColors.textHint.withValues(alpha: 0.3),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -300,31 +413,8 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
     );
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppColors.primary,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
-    }
-  }
-
   void _confirmExit(BuildContext context) {
-    if (_amountController.text.isEmpty && _noteController.text.isEmpty) {
+    if (_amountInput.isEmpty && _noteController.text.isEmpty) {
       Navigator.of(context).pop();
       return;
     }
@@ -355,7 +445,7 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
   }
 
   Future<void> _saveRecord() async {
-    final amount = double.tryParse(_amountController.text) ?? 0;
+    final amount = double.tryParse(_amountInput) ?? 0;
     if (amount <= 0 || _selectedCategoryId == null) return;
 
     final database = await ref.read(databaseProvider.future);
@@ -365,8 +455,9 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
         id: drift.Value(widget.recordToEdit!.id),
         amount: drift.Value(amount),
         categoryId: drift.Value(_selectedCategoryId!),
-        recordDate: drift.Value(_selectedDate),
+        recordDate: drift.Value(widget.recordToEdit!.recordDate),
         note: drift.Value(_noteController.text.isEmpty ? null : _noteController.text),
+        type: drift.Value(_recordType),
         createdAt: drift.Value(widget.recordToEdit!.createdAt),
         updatedAt: drift.Value(DateTime.now()),
       ));
@@ -374,19 +465,52 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       await database.insertRecord(RecordsCompanion.insert(
         amount: amount,
         categoryId: _selectedCategoryId!,
-        recordDate: _selectedDate,
+        recordDate: DateTime.now(),
         note: drift.Value(_noteController.text.isEmpty ? null : _noteController.text),
+        type: drift.Value(_recordType),
       ));
     }
 
     if (mounted) {
+      // D3: 保存成功后，首页自动切到对应收支类型视图（原型 A6 / 6.1）
+      ref.read(selectedTypeProvider.notifier).state = _recordType;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isEditing ? '修改成功' : '记账成功'),
+          content: Text(_recordType == 'expense' ? '支出已记录 ✓' : '收入已记录 ✓'),
           backgroundColor: AppColors.primary,
         ),
       );
     }
+  }
+}
+
+/// 数字键盘按键值
+class _NumpadKey {
+  final String value; // '0'..'9' / '.' / 'del'
+  const _NumpadKey(this.value);
+  const _NumpadKey.del() : value = 'del';
+
+  String get display {
+    if (value == 'del') return '⌫';
+    return value;
+  }
+}
+
+/// 金额显示区右侧的竖线光标（静态，避免 AnimationController 让 widget test pumpAndSettle 超时）
+class _BlinkingCursor extends StatelessWidget {
+  const _BlinkingCursor();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 2,
+      height: 32,
+      margin: const EdgeInsets.only(left: 4),
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(1),
+      ),
+    );
   }
 }
