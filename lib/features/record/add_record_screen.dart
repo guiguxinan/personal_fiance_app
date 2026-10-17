@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../data/database/app_database.dart';
@@ -19,8 +20,11 @@ class AddRecordScreen extends ConsumerStatefulWidget {
 
 class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
   /// 九宫格数字键盘输入的原始字符串（含小数点，最多 9 位）。
-  /// 替代原来的 _amountController + TextField。
   String _amountInput = '';
+  /// V3.0 N2：金额区默认折叠，点击金额区才唤起键盘
+  bool _showNumpad = false;
+  /// V3.0 N1：所选记录日期（默认当天，可通过日期行改选当天及以前）
+  DateTime _selectedDate = DateTime.now();
   final _noteController = TextEditingController();
   int? _selectedCategoryId;
   String _recordType = 'expense'; // 'expense' or 'income'
@@ -34,6 +38,8 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       _amountInput = widget.recordToEdit!.amount.toStringAsFixed(2);
       _selectedCategoryId = widget.recordToEdit!.categoryId;
       _recordType = widget.recordToEdit!.type;
+      // 编辑模式：日期回填为原记录日期
+      _selectedDate = widget.recordToEdit!.recordDate;
       _noteController.text = widget.recordToEdit!.note ?? '';
     }
   }
@@ -69,7 +75,7 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       ),
       body: Column(
         children: [
-          // 顶部内容区（可滚动）：切换、金额、分类、备注
+          // 顶部内容区（可滚动）：切换、金额、分类、日期、备注 + 条件显示的键盘
           Expanded(
             child: SingleChildScrollView(
               child: Column(
@@ -77,22 +83,26 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
                   // Type toggle
                   _buildTypeToggle(),
 
-                  // 金额显示（数字由 _amountInput 驱动，仅展示，不可点击编辑）
+                  // 金额显示（点击切换键盘显示，对齐 V3.0 N2）
                   _buildAmountDisplay(),
 
                   // Category selection
                   _buildCategoryGrid(),
 
-                  // 备注输入（最多 100 字）
-                  _buildNoteInput(),
+                  // V3.0 N1：日期行（点击弹出日历选择器）
+                  _buildDateRow(),
+
+                  // V3.0 N3：备注行（点击弹出输入框）
+                  _buildNoteRow(),
+
+                  // V3.0 N2：九宫格数字键盘（默认折叠，点击金额区才显示）
+                  if (_showNumpad) _buildNumpad(),
 
                   const SizedBox(height: 16),
                 ],
               ),
             ),
           ),
-          // 九宫格数字键盘（固定底部，始终可见，对齐原型 numpad）
-          _buildNumpad(),
         ],
       ),
       bottomNavigationBar: _buildBottomBar(),
@@ -142,49 +152,53 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
   }
 
   /// 金额显示区：¥ + 大字金额（来自 _amountInput）+ 闪烁光标。
-  /// 不可编辑，纯展示；编辑通过下方九宫格键盘。
+  /// V3.0 N2：点击金额区唤起/收起九宫格键盘；label 文案"金额（元）· 点我输入"。
   Widget _buildAmountDisplay() {
     return Container(
       color: AppColors.surface,
       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
-      child: Column(
-        children: [
-          Text(
-            '金额（元）',
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textHint,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _showNumpad = !_showNumpad),
+        child: Column(
+          children: [
+            Text(
+              _showNumpad ? '金额（元）' : '金额（元）· 点我输入',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textHint,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                '¥',
-                style: const TextStyle(
-                  fontSize: 24,
-                  color: AppColors.textHint,
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  '¥',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    color: AppColors.textHint,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                _amountInput.isEmpty ? '0' : _amountInput,
-                style: const TextStyle(
-                  fontSize: 42,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                  letterSpacing: -1,
+                const SizedBox(width: 4),
+                Text(
+                  _amountInput.isEmpty ? '0' : _amountInput,
+                  style: const TextStyle(
+                    fontSize: 42,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                    letterSpacing: -1,
+                  ),
                 ),
-              ),
-              // 闪烁光标
-              _BlinkingCursor(),
-            ],
-          ),
-        ],
+                // 键盘唤起时显示静态光标
+                if (_showNumpad) const _BlinkingCursor(),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -259,6 +273,157 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       if (key == '.' && _amountInput.contains('.')) return;
       _amountInput += key;
     });
+  }
+
+  /// V3.0 N1：日期行（form-row 样式）
+  Widget _buildDateRow() {
+    final dateFormat = DateFormat('yyyy年MM月dd日', 'zh_CN');
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      color: AppColors.surface,
+      child: InkWell(
+        onTap: _pickDate,
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_today_outlined,
+                size: 18, color: AppColors.textHint),
+            const SizedBox(width: 12),
+            Text('日期', style: AppTypography.bodyLarge),
+            const Spacer(),
+            Text(
+              dateFormat.format(_selectedDate),
+              style: AppTypography.bodyLarge.copyWith(color: AppColors.primary),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.chevron_right, color: AppColors.textHint, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// V3.0 N1：弹出日历选择器，禁止未来日期
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: now, // 禁止未来日期
+      locale: const Locale('zh', 'CN'),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              surface: AppColors.surface,
+              onSurface: AppColors.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
+  /// V3.0 N3：备注行（点击弹出 BottomSheet 输入框）
+  Widget _buildNoteRow() {
+    final hasNote = _noteController.text.isNotEmpty;
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      color: AppColors.surface,
+      child: InkWell(
+        onTap: _showNoteDialog,
+        child: Row(
+          children: [
+            const Icon(Icons.edit_note, size: 20, color: AppColors.textHint),
+            const SizedBox(width: 12),
+            Text('备注', style: AppTypography.bodyLarge),
+            const Spacer(),
+            Flexible(
+              child: Text(
+                hasNote ? _noteController.text : '选填，点我输入...',
+                style: AppTypography.bodyLarge.copyWith(
+                  color: hasNote ? AppColors.textPrimary : AppColors.textHint,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.chevron_right, color: AppColors.textHint, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// V3.0 N3：底部抽屉弹窗，承载备注 TextField
+  Future<void> _showNoteDialog() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('备注（选填）', style: AppTypography.titleMedium),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _noteController,
+                maxLines: 3,
+                maxLength: 100,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '请输入备注...',
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(sheetContext).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                  ),
+                  child: const Text('确定',
+                      style: TextStyle(color: Colors.white, fontSize: 15)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildCategoryGrid() {
@@ -337,38 +502,6 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => const Center(child: Text('加载分类失败')),
-    );
-  }
-
-  Widget _buildNoteInput() {
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      margin: const EdgeInsets.only(top: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('备注（选填）', style: AppTypography.titleMedium),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _noteController,
-            maxLines: 2,
-            maxLength: 100,
-            decoration: InputDecoration(
-              hintText: '备注（选填）...',
-              hintStyle: AppTypography.bodyMedium,
-              filled: true,
-              fillColor: AppColors.background,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.all(12),
-              counterStyle: AppTypography.labelSmall,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -465,7 +598,7 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       await database.insertRecord(RecordsCompanion.insert(
         amount: amount,
         categoryId: _selectedCategoryId!,
-        recordDate: DateTime.now(),
+        recordDate: _selectedDate,
         note: drift.Value(_noteController.text.isEmpty ? null : _noteController.text),
         type: drift.Value(_recordType),
       ));
@@ -475,9 +608,11 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       // D3: 保存成功后，首页自动切到对应收支类型视图（原型 A6 / 6.1）
       ref.read(selectedTypeProvider.notifier).state = _recordType;
       Navigator.of(context).pop();
+      // V3.0 N4: Toast 文案更新为「已保存 {type} ¥{amount}，首页已同步切换」
+      final typeLabel = _recordType == 'expense' ? '支出' : '收入';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_recordType == 'expense' ? '支出已记录 ✓' : '收入已记录 ✓'),
+          content: Text('已保存 $typeLabel ¥${_amountInput}，首页已同步切换'),
           backgroundColor: AppColors.primary,
         ),
       );

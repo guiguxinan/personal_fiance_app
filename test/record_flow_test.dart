@@ -80,8 +80,12 @@ void main() {
     );
     expect(initialSave.onPressed, isNull);
 
+    // V3.0 N2：金额键盘默认折叠，需先点击金额区唤起
+    await tester.tap(find.text('金额（元）· 点我输入'));
+    await tester.pump();
+    expect(find.text('金额（元）'), findsOneWidget); // 唤起后文案变更
+
     // 输入金额 45.5（点击九宫格数字键盘：4 → 5 → . → 5）
-    // 注意：第一个 TextField 现在是备注，金额必须通过数字键盘点击
     await tester.tap(find.text('4'));
     await tester.pump();
     await tester.tap(find.text('5'));
@@ -110,10 +114,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // 首页展示新记录
-    expect(find.text('支出已记录 ✓'), findsOneWidget); // SnackBar 提示
+    // V3.0 N4：Toast 文案更新为「已保存 支出 ¥45.5，首页已同步切换」
+    expect(find.textContaining('已保存 支出'), findsOneWidget);
+    expect(find.textContaining('45.5'), findsWidgets);
     expect(find.text('还没有记录，点下方 + 记一笔吧～'), findsNothing);
     expect(find.text('餐饮'), findsWidgets); // 分类汇总 + 记录列表
-    expect(find.textContaining('45.5'), findsWidgets);
 
     await disposeApp(tester);
   });

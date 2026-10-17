@@ -411,7 +411,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            '所选维度暂无记录',
+            '还没有记录，开始记账吧',
             style: AppTypography.titleMedium.copyWith(
               color: AppColors.textHint,
             ),
