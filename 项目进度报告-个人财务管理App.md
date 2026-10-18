@@ -16,7 +16,7 @@
 
 ## 0. 关键结论（一句话）
 
-**V3.1 修复 + V3.2 优化（U1 收支位置调换）与 M4/M5/M6 缺陷修复全部完成并经真机复测通过 · analyze 0 issues · 50 用例通过 · Release APK 57.3MB · 已推送远端 · 可进入发版决策。**
+**V3.1 修复 + V3.2 优化（U1 收支位置调换）+ M4/M5/M6 缺陷修复 + 日期选择器本地化修复全部完成并经真机/模拟器验证 · analyze 0 issues · 50 用例通过 · Release APK 58.8MB · 可进入发版决策。**
 
 ---
 
@@ -242,7 +242,7 @@ V3.0:  Scaffold > Column(Expanded(SingleChildScrollView(type/amount/cat/date/not
 
 ### 8.3 待确认项（剩余）
 
-- **日期选择器**：模拟器（gfxstream 软渲染）渲染卡遮罩、返回键可关闭、无崩溃——判定为模拟器环境问题，**待真机复测确认**
+- ~~**日期选择器**：模拟器渲染限制（gfxstream）~~ → **已修复**（commit `f6946d4`，2026-10-18）：根因为 MaterialApp 缺本地化委托 + showDatePicker 指定 zh_CN，非模拟器渲染限制；已加 flutter_localizations + intl ^0.20.3 + delegates/supportedLocales，模拟器验证日历完整弹出，新 APK 58.8MB 待用户真机复测
 - **发版决策**：V3.2 代码/测试/真机复测均已通过、已推送远端，是否正式对外发版由用户确认
 
 ---
