@@ -84,8 +84,8 @@ void main() {
     await tester.tap(find.text('金额（元）· 点我输入'));
     await tester.pump();
 
-    // 验证「最近使用」区出现（标题）
-    expect(find.text('最近使用'), findsOneWidget);
+    // 验证「🕒 最近使用」区出现（N4：标题对齐原型带 🕒 图标）
+    expect(find.text('🕒 最近使用'), findsOneWidget);
 
     await disposeApp(tester);
   });

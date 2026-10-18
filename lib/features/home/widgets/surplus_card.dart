@@ -4,6 +4,7 @@ import '../../../core/utils/currency_formatter.dart';
 
 /// V3.1 (M4a)：本月结余卡片
 /// 结余 = 当月收入 − 当月支出；正数绿、负数警示色（#D96B5F）
+/// §10.6#1：右侧对齐原型「📊 查看 ›」入口提示（点击整卡跳统计页）
 class SurplusCard extends StatelessWidget {
   final double income;
   final double expense;
@@ -40,66 +41,54 @@ class SurplusCard extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              const Text(
-                '本月结余',
-                style: TextStyle(fontSize: 12, color: AppColors.textHint),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    (isPositive ? '' : '-') + CurrencyFormatter.format(surplus.abs()),
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: surplusColor,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      letterSpacing: -0.5,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '本月结余',
+                      style: TextStyle(fontSize: 12, color: AppColors.textHint),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    surplus > 0 ? '结余' : surplus < 0 ? '透支' : '持平',
-                    style: TextStyle(fontSize: 12, color: surplusColor),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          (isPositive ? '' : '-') +
+                              CurrencyFormatter.format(surplus.abs()),
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: surplusColor,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          surplus > 0 ? '结余' : surplus < 0 ? '透支' : '持平',
+                          style: TextStyle(fontSize: 12, color: surplusColor),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(child: _miniLine('收入', income, AppColors.income)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _miniLine('支出', expense, AppColors.expense)),
-                ],
+              // §10.6#1：右侧「📊 查看 ›」视觉入口（对齐原型 surplus-card .go）
+              const Text(
+                '📊 查看 ›',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textHint,
+                ),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _miniLine(String label, double value, Color color) {
-    return Text.rich(
-      TextSpan(children: [
-        TextSpan(
-          text: '$label ',
-          style: const TextStyle(fontSize: 11, color: AppColors.textHint),
-        ),
-        TextSpan(
-          text: CurrencyFormatter.format(value),
-          style: TextStyle(
-            fontSize: 11,
-            color: color,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ]),
     );
   }
 }

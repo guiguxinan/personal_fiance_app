@@ -76,8 +76,9 @@ void main() {
     expect(find.text('记一笔'), findsOneWidget);
 
     // 保存按钮初始禁用（未填金额/未选分类）
+    // N5：按钮文案对齐原型「保 存」
     final initialSave = tester.widget<ElevatedButton>(
-      find.widgetWithText(ElevatedButton, '保存'),
+      find.widgetWithText(ElevatedButton, '保 存'),
     );
     expect(initialSave.onPressed, isNull);
 
@@ -102,12 +103,12 @@ void main() {
 
     // 保存按钮解锁
     final enabledSave = tester.widget<ElevatedButton>(
-      find.widgetWithText(ElevatedButton, '保存'),
+      find.widgetWithText(ElevatedButton, '保 存'),
     );
     expect(enabledSave.onPressed, isNotNull);
 
     // 点击保存 → 回到首页
-    await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
+    await tester.tap(find.widgetWithText(ElevatedButton, '保 存'));
     await tester.pumpAndSettle();
 
     // 等待数据库写入完成并刷新列表
@@ -136,7 +137,8 @@ void main() {
 
     // 回到首页，无确认对话框
     expect(find.text('放弃记账？'), findsNothing);
-    expect(find.byIcon(Icons.add), findsOneWidget);
+    // FAB「+」为 Text 字符（I4：对齐原型）
+    expect(find.text('+'), findsOneWidget);
 
     await disposeApp(tester);
   });
@@ -188,7 +190,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('餐饮'));
     await tester.pump();
-    await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
+    await tester.tap(find.widgetWithText(ElevatedButton, '保 存'));
     await tester.pumpAndSettle();
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
     await tester.pumpAndSettle();

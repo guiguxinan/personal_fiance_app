@@ -36,14 +36,13 @@ void main() {
     expect(find.text('-${CurrencyFormatter.format(1000)}'), findsOneWidget);
   });
 
-  testWidgets('M4a 收入/支出小行展示', (tester) async {
+  testWidgets('M4a 右侧「📊 查看 ›」入口提示（§10.6#1）', (tester) async {
     await tester.pumpWidget(
       wrap(
         SurplusCard(income: 4000, expense: 1000, onTap: () {}),
       ),
     );
-    expect(find.textContaining('收入'), findsOneWidget);
-    expect(find.textContaining('支出'), findsOneWidget);
+    expect(find.text('📊 查看 ›'), findsOneWidget);
   });
 
   testWidgets('M4a 点击卡片触发 onTap', (tester) async {

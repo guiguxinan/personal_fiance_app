@@ -15,6 +15,9 @@ class AppColors {
   static const Color surface = Colors.white;
   static const Color line = Color(0xFFF0E3E8);
 
+  // 分段开关轨道色（按原型 type-switch-large / stats-switch-row 灰底 #F0E8EB）
+  static const Color switchTrack = Color(0xFFF0E8EB);
+
   // Text（按原型 --ink / --ink-2 / --ink-3）
   static const Color textPrimary = Color(0xFF2E2429);
   static const Color textSecondary = Color(0xFF6B5A61);
@@ -41,6 +44,8 @@ class AppColors {
   static const Color expense = Color(0xFFC96B85);
   static const Color income = Color(0xFF5BB892);
   static const Color incomeLight = Color(0xFFE0F3EA);
+  // 收入选中态深绿（对齐原型收入主色 #3D9472，统计页收入分段选中文字）
+  static const Color incomeDark = Color(0xFF3D9472);
   static const Color warning = Color(0xFFF39C12);
 
   // V3.3 (B2)：统计页「一句话洞察」卡（按原型 V3.1 insight-card：#FFF6E0→#FBF1D9 渐变、文字 #8A6D2B）

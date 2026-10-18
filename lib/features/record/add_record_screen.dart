@@ -72,7 +72,11 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
         elevation: 0,
         leading: IconButton(
           key: const Key('close-btn'),
-          icon: const Icon(Icons.close),
+          // I7：关闭按钮对齐原型「✕」字符
+          icon: const Text(
+            '✕',
+            style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
+          ),
           onPressed: () => _confirmExit(context),
         ),
         title: Text(
@@ -292,6 +296,7 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
   /// V3.0 N1：日期行（form-row 样式）
   /// 真机 bug 修复：原 InkWell 包裹 Row + 嵌套在 Container(color:surface) 中
   /// 导致部分真机 InkWell tap 区域被吃。改用 GestureDetector(behavior: opaque) 显式吞事件。
+  /// N10：对齐原型「日期 · 2026年10月18日 📅」（值右侧 📅 emoji，无行首图标/行尾箭头）
   Widget _buildDateRow() {
     final dateFormat = DateFormat('yyyy年MM月dd日', 'zh_CN');
     return Container(
@@ -304,17 +309,17 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              const Icon(Icons.calendar_today_outlined,
-                  size: 18, color: AppColors.textHint),
-              const SizedBox(width: 12),
               Text('日期', style: AppTypography.bodyLarge),
               const Spacer(),
               Text(
                 dateFormat.format(_selectedDate),
-                style: AppTypography.bodyLarge.copyWith(color: AppColors.primary),
+                style: AppTypography.bodyLarge.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              const SizedBox(width: 6),
-              const Icon(Icons.chevron_right, color: AppColors.textHint, size: 18),
+              const SizedBox(width: 4),
+              const Text('📅', style: TextStyle(fontSize: 12)),
             ],
           ),
         ),
@@ -351,6 +356,7 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
   }
 
   /// V3.0 N3：备注行（点击弹出 BottomSheet 输入框）
+  /// N10：对齐原型「备注 · 选填，点我输入...」（无行首图标/行尾箭头）
   Widget _buildNoteRow() {
     final hasNote = _noteController.text.isNotEmpty;
     return Container(
@@ -361,8 +367,6 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
         onTap: _showNoteDialog,
         child: Row(
           children: [
-            const Icon(Icons.edit_note, size: 20, color: AppColors.textHint),
-            const SizedBox(width: 12),
             Text('备注', style: AppTypography.bodyLarge),
             const Spacer(),
             Flexible(
@@ -375,8 +379,6 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 6),
-            const Icon(Icons.chevron_right, color: AppColors.textHint, size: 18),
           ],
         ),
       ),
@@ -478,8 +480,9 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // N4：标题对齐原型「🕒 最近使用」
                         const Text(
-                          '最近使用',
+                          '🕒 最近使用',
                           style: TextStyle(fontSize: 11, color: AppColors.textHint),
                         ),
                         const SizedBox(height: 8),
@@ -627,7 +630,8 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
             ),
           ),
           child: Text(
-            _isEditing ? '保存修改' : '保存',
+            // N5：文案对齐原型「保 存」（编辑态保留「保存修改」）
+            _isEditing ? '保存修改' : '保 存',
             style: AppTypography.titleMedium.copyWith(
               color: Colors.white,
             ),

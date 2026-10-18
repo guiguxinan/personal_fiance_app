@@ -162,7 +162,8 @@ class HomeScreen extends ConsumerWidget {
             ref: ref,
             selectedMonth: selectedMonth,
             delta: -1,
-            icon: Icons.chevron_left,
+            // I2：月份箭头对齐原型 ‹ › 字符
+            symbol: '‹',
           ),
           Expanded(
             child: Center(
@@ -180,14 +181,16 @@ class HomeScreen extends ConsumerWidget {
             ref: ref,
             selectedMonth: selectedMonth,
             delta: 1,
-            icon: Icons.chevron_right,
+            symbol: '›',
           ),
-          // M7：设置入口
+          // M7：设置入口（I2：⚙️ emoji 对齐原型）
           const SizedBox(width: 4),
           IconButton(
             key: const Key('settings-btn'),
-            icon: const Icon(Icons.settings_outlined, size: 22),
-            color: AppColors.textHint,
+            icon: const Text(
+              '⚙️',
+              style: TextStyle(fontSize: 18),
+            ),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             onPressed: () => _navigateToSettings(context),
@@ -201,7 +204,7 @@ class HomeScreen extends ConsumerWidget {
     required WidgetRef ref,
     required DateTime selectedMonth,
     required int delta,
-    required IconData icon,
+    required String symbol,
   }) {
     return GestureDetector(
       onTap: () {
@@ -215,10 +218,15 @@ class HomeScreen extends ConsumerWidget {
           color: Colors.white,
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          icon,
-          size: 16,
-          color: AppColors.textHint,
+        child: Center(
+          child: Text(
+            symbol,
+            style: const TextStyle(
+              fontSize: 20,
+              color: AppColors.textHint,
+              height: 1.0,
+            ),
+          ),
         ),
       ),
     );
@@ -353,7 +361,8 @@ class HomeScreen extends ConsumerWidget {
                         Expanded(
                           child: _buildTabItem(
                             context: context,
-                            icon: Icons.home,
+                            // I4：底部导航图标对齐原型 emoji（🏠 首页 / 📊 统计）
+                            emoji: '🏠',
                             label: '首页',
                             active: true,
                             onTap: () {},
@@ -363,7 +372,7 @@ class HomeScreen extends ConsumerWidget {
                         Expanded(
                           child: _buildTabItem(
                             context: context,
-                            icon: Icons.bar_chart,
+                            emoji: '📊',
                             label: '统计',
                             active: false,
                             onTap: () => _navigateToStatistics(context),
@@ -392,7 +401,7 @@ class HomeScreen extends ConsumerWidget {
 
   Widget _buildTabItem({
     required BuildContext context,
-    required IconData icon,
+    required String emoji,
     required String label,
     required bool active,
     required VoidCallback onTap,
@@ -414,7 +423,10 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Icon(icon, size: 22, color: color),
+          Text(
+            emoji,
+            style: TextStyle(fontSize: 18, color: color),
+          ),
           const SizedBox(height: 3),
           Text(
             label,
@@ -452,11 +464,16 @@ class HomeScreen extends ConsumerWidget {
             ),
           ],
         ),
-        child: const Icon(
-          Icons.add,
-          color: Colors.white,
-          size: 28,
-          weight: 300,
+        child: const Center(
+          child: Text(
+            '+',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 30,
+              height: 1.0,
+              fontWeight: FontWeight.w300,
+            ),
+          ),
         ),
       ),
     );

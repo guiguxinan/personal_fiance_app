@@ -52,17 +52,21 @@ class BudgetCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                '本月预算',
-                style: TextStyle(fontSize: 12, color: AppColors.textHint),
+              // N7：标题对齐原型「月度预算 ¥X」（金额并入标题行）
+              Text(
+                '月度预算 ${CurrencyFormatter.format(budgetAmount)}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
               ),
               Text(
-                CurrencyFormatter.format(budgetAmount),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                  fontFeatures: [FontFeature.tabularFigures()],
+                '${(pct * 100).round()}%',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: barColor,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -78,15 +82,16 @@ class BudgetCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
+          // N2：meta 对齐原型「剩余可用 ¥X（左）/ 剩余日均 ¥Y（右）」
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${(pct * 100).round()}%',
-                style: TextStyle(
+                '剩余可用 ${CurrencyFormatter.format(remainingBudget)}',
+                style: const TextStyle(
                   fontSize: 11,
-                  color: barColor,
-                  fontWeight: FontWeight.w600,
+                  color: AppColors.textHint,
+                  fontFeatures: [FontFeature.tabularFigures()],
                 ),
               ),
               if (!isOver)
@@ -94,7 +99,8 @@ class BudgetCard extends StatelessWidget {
                   '剩余日均 ${CurrencyFormatter.format(dailyAvg)}',
                   style: const TextStyle(
                     fontSize: 11,
-                    color: AppColors.textHint,
+                    color: AppColors.primaryDark,
+                    fontWeight: FontWeight.w600,
                     fontFeatures: [FontFeature.tabularFigures()],
                   ),
                 )

@@ -58,10 +58,11 @@ class RecordListItem extends ConsumerWidget {
                       bottomLeft: Radius.circular(14),
                     ),
                   ),
+                  // I3：左滑按钮图标对齐原型 emoji（✏️ 编辑 / 🗑 删除）
                   child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.edit_outlined, color: Colors.white, size: 20),
+                      Text('✏️', style: TextStyle(fontSize: 15)),
                       SizedBox(height: 2),
                       Text('编辑',
                           style: TextStyle(
@@ -87,7 +88,7 @@ class RecordListItem extends ConsumerWidget {
                 child: const Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.delete_outline, color: Colors.white, size: 20),
+                    Text('🗑', style: TextStyle(fontSize: 15)),
                     SizedBox(height: 2),
                     Text('删除',
                         style: TextStyle(
@@ -102,47 +103,41 @@ class RecordListItem extends ConsumerWidget {
         ),
       ),
       confirmDismiss: (direction) async {
-        // 弹底部菜单让用户选择"编辑/删除"
-        final action = await showModalBottomSheet<String>(
+        // 弹中央菜单让用户选择"编辑/删除"（N12：对齐原型中央弹窗样式）
+        final action = await showDialog<String>(
           context: context,
-          backgroundColor: AppColors.surface,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          builder: (sheetCtx) {
-            return SafeArea(
+          builder: (dialogCtx) => Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 96),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(height: 8),
-                  Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.line,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
+                  _menuAction(
+                    dialogCtx,
+                    '✏️',
+                    '编辑',
+                    AppColors.textPrimary,
+                    () => Navigator.pop(dialogCtx, 'edit'),
                     key: const Key('swipe-action-edit'),
-                    leading:
-                        const Icon(Icons.edit_outlined, color: AppColors.textPrimary),
-                    title: const Text('编辑'),
-                    onTap: () => Navigator.pop(sheetCtx, 'edit'),
                   ),
-                  ListTile(
+                  _menuAction(
+                    dialogCtx,
+                    '🗑',
+                    '删除',
+                    AppColors.expense,
+                    () => Navigator.pop(dialogCtx, 'delete'),
                     key: const Key('swipe-action-delete'),
-                    leading: Icon(Icons.delete_outline, color: AppColors.expense),
-                    title:
-                        Text('删除', style: TextStyle(color: AppColors.expense)),
-                    onTap: () => Navigator.pop(sheetCtx, 'delete'),
                   ),
-                  const SizedBox(height: 8),
                 ],
               ),
-            );
-          },
+            ),
+          ),
         );
         if (action == 'edit') {
           // 不关闭 Dismissible（return false 阻止 dismiss），但触发编辑
@@ -243,66 +238,94 @@ class RecordListItem extends ConsumerWidget {
     );
   }
 
-  // V3.1 (M3b)：长按弹底部菜单（复记/编辑/删除）
+  // V3.1 (M3b) + N12：长按弹中央菜单（复记/编辑/删除），对齐原型 longpress-menu 中央 200px 弹窗
   Future<void> _showActions(
     BuildContext context,
     VoidCallback onEdit,
     VoidCallback onDelete,
     VoidCallback onCopy,
   ) async {
-    await showModalBottomSheet<void>(
+    await showDialog<void>(
       context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetCtx) {
-        return SafeArea(
+      barrierDismissible: true,
+      builder: (dialogCtx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 96),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.line,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                key: const Key('action-copy'),
-                leading: const Icon(Icons.copy_rounded, color: AppColors.textPrimary),
-                title: const Text('复记一笔'),
-                onTap: () {
-                  Navigator.pop(sheetCtx);
+              _menuAction(
+                dialogCtx,
+                '🔁',
+                '复记一笔',
+                AppColors.textPrimary,
+                () {
+                  Navigator.pop(dialogCtx);
                   onCopy();
                 },
+                key: const Key('action-copy'),
               ),
-              ListTile(
-                key: const Key('action-edit'),
-                leading: const Icon(Icons.edit_outlined, color: AppColors.textPrimary),
-                title: const Text('编辑'),
-                onTap: () {
-                  Navigator.pop(sheetCtx);
+              _menuAction(
+                dialogCtx,
+                '✏️',
+                '编辑',
+                AppColors.textPrimary,
+                () {
+                  Navigator.pop(dialogCtx);
                   onEdit();
                 },
+                key: const Key('action-edit'),
               ),
-              ListTile(
-                key: const Key('action-delete'),
-                leading: Icon(Icons.delete_outline, color: AppColors.expense),
-                title: Text('删除', style: TextStyle(color: AppColors.expense)),
-                onTap: () {
-                  Navigator.pop(sheetCtx);
+              _menuAction(
+                dialogCtx,
+                '🗑',
+                '删除',
+                AppColors.expense,
+                () {
+                  Navigator.pop(dialogCtx);
                   onDelete();
                 },
+                key: const Key('action-delete'),
               ),
-              const SizedBox(height: 8),
             ],
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+
+  /// 中央弹窗菜单项（emoji 图标 + 文案，对齐原型）
+  Widget _menuAction(
+    BuildContext context,
+    String emoji,
+    String label,
+    Color color,
+    VoidCallback onTap, {
+    Key? key,
+  }) {
+    return InkWell(
+      key: key,
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Row(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 15)),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(fontSize: 14, color: color),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

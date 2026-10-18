@@ -5,14 +5,17 @@ import 'package:personal_finance_app/features/home/widgets/budget_card.dart';
 void main() {
   Widget wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 
-  testWidgets('M4b 50% 进度显示粉色 + 剩余日均', (tester) async {
+  testWidgets('M4b 50% 进度显示粉色 + 剩余可用/剩余日均', (tester) async {
     await tester.pumpWidget(
       wrap(
         const BudgetCard(budgetAmount: 1000, expenseAmount: 500),
       ),
     );
-    expect(find.text('本月预算'), findsOneWidget);
+    // N7：标题「月度预算」+ 金额（对齐原型）
+    expect(find.text('月度预算 ¥1,000.00'), findsOneWidget);
     expect(find.text('50%'), findsOneWidget);
+    // N2：meta 左「剩余可用」+ 右「剩余日均」
+    expect(find.text('剩余可用 ¥500.00'), findsOneWidget);
     expect(find.textContaining('剩余日均'), findsOneWidget);
   });
 

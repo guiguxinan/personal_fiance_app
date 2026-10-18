@@ -38,39 +38,40 @@ class SettingsScreen extends ConsumerWidget {
 
           // ── 段 1: 数据 ──
           _buildSectionHeader('数据'),
+          // N3/I10：对齐原型「📤 导出数据（CSV）· 全部记录 ›」一行两列 + emoji 图标
           _buildSettingsItem(
-            icon: Icons.table_chart_outlined,
-            title: '导出 CSV',
-            subtitle: '导出所有记账记录为 CSV 文件',
+            emoji: '📤',
+            title: '导出数据（CSV）',
+            rightText: '全部记录',
             onTap: () => _exportCsv(context, ref),
           ),
           _buildSettingsItem(
-            icon: Icons.backup_outlined,
-            title: '备份 (JSON)',
-            subtitle: '导出完整数据备份（含自定义分类）',
+            emoji: '💾',
+            title: '备份（JSON）',
+            rightText: '记录+分类+预算',
             onTap: () => _exportJson(context, ref),
           ),
           _buildSettingsItem(
-            icon: Icons.restore,
+            emoji: '♻️',
             title: '恢复备份',
-            subtitle: '从备份文件恢复数据',
+            rightText: '选择文件',
             onTap: () => _restoreJson(context, ref),
           ),
           const SizedBox(height: 24),
 
           // ── 段 2: 预算 ──
           _buildSectionHeader('预算'),
-          _buildBudgetToggle(ref, budgetAsync),
+          _buildBudgetToggleRow(ref, budgetAsync),
           _buildBudgetAmountRow(context, ref, budgetAsync),
           const SizedBox(height: 24),
 
           // ── 段 3: 分类管理 ──
-          _buildSectionHeader('分类'),
+          _buildSectionHeader('分类管理'),
           _buildSettingsItem(
             key: const Key('settings-category-manage'),
-            icon: Icons.category_outlined,
-            title: '分类管理',
-            subtitle: '管理自定义分类',
+            emoji: '🏷️',
+            title: '支出 / 收入分类',
+            rightText: '新增/隐藏/排序',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -84,15 +85,15 @@ class SettingsScreen extends ConsumerWidget {
           // ── 段 4: 关于 ──
           _buildSectionHeader('关于'),
           _buildSettingsItem(
-            icon: Icons.info_outline,
-            title: '版本信息',
-            subtitle: '轻记 v3.3 (build 3)',
+            emoji: 'ℹ️',
+            title: '版本',
+            rightText: '轻记 v3.3 (build 4)',
             onTap: null,
           ),
           _buildSettingsItem(
-            icon: Icons.lock_outline,
+            emoji: '🔒',
             title: '隐私',
-            subtitle: '纯本地 · 无账号 · 无广告',
+            rightText: '纯本地 · 无账号 · 无广告',
             onTap: null,
           ),
           const SizedBox(height: 24),
@@ -113,10 +114,12 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  /// I10/N3：设置行对齐原型（左 emoji 图标 13px + 文字；右辅助文 10px/占位色 + › 箭头）
   Widget _buildSettingsItem({
-    required IconData icon,
+    String? emoji,
     required String title,
-    required String subtitle,
+    String? subtitle,
+    String? rightText,
     required VoidCallback? onTap,
     Key? key,
   }) {
@@ -129,17 +132,34 @@ class SettingsScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: ListTile(
-          leading: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: AppColors.primary),
-          ),
+          leading: emoji != null
+              ? Text(
+                  emoji,
+                  style: const TextStyle(fontSize: 18),
+                )
+              : null,
           title: Text(title, style: AppTypography.bodyLarge),
-          subtitle: Text(subtitle, style: AppTypography.labelSmall),
-          trailing: onTap != null ? const Icon(Icons.chevron_right) : null,
+          subtitle: subtitle != null
+              ? Text(subtitle, style: AppTypography.labelSmall)
+              : null,
+          trailing: (rightText != null || onTap != null)
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (rightText != null)
+                      Text(
+                        rightText,
+                        style: AppTypography.labelSmall.copyWith(
+                          color: AppColors.textHint,
+                        ),
+                      ),
+                    if (onTap != null) ...[
+                      const SizedBox(width: 2),
+                      const Icon(Icons.chevron_right, size: 16, color: AppColors.textHint),
+                    ],
+                  ],
+                )
+              : null,
           onTap: onTap,
         ),
       ),
@@ -347,14 +367,14 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  Widget _buildBudgetToggle(
+  /// N11：预算开关行对齐原型（🎯 月度预算 + 40×24 圆角12 粉色开关，滑块 20px 白圆带轻投影）
+  Widget _buildBudgetToggleRow(
     WidgetRef ref,
     AsyncValue<Budget?> budgetAsync,
   ) {
     final month = ref.watch(selectedMonthProvider);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      // Material 包装避免 ListTile 在 DecoratedBox 内部报"ink splash 不可见"
       child: Material(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
@@ -362,22 +382,28 @@ class SettingsScreen extends ConsumerWidget {
         child: budgetAsync.when(
           data: (b) {
             final enabled = b?.enabled ?? false;
-            return SwitchListTile(
-              secondary: Icon(
-                Icons.pie_chart_outline,
-                color: enabled ? AppColors.primary : AppColors.textHint,
-              ),
-              title: const Text('启用月度预算'),
-              subtitle: const Text('关闭后保留金额数据'),
-              value: enabled,
-              onChanged: (v) async {
+            return InkWell(
+              onTap: () async {
                 final db = await ref.read(databaseProvider.future);
                 await db.upsertMonthlyBudget(
                   month: month,
                   amount: b?.amount ?? 0,
-                  enabled: v,
+                  enabled: !enabled,
                 );
               },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  children: [
+                    const Text('🎯', style: TextStyle(fontSize: 18)),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text('月度预算', style: AppTypography.bodyLarge),
+                    ),
+                    _PinkSwitch(value: enabled),
+                  ],
+                ),
+              ),
             );
           },
           loading: () => const ListTile(title: Text('加载中...')),
@@ -396,24 +422,37 @@ class SettingsScreen extends ConsumerWidget {
     return budgetAsync.when(
       data: (b) {
         final amt = b?.amount ?? 0;
+        // N9：对齐原型「预算金额 · ¥6,000 ›」（金额在右侧辅助文位置 + 箭头）
         return _buildSettingsItem(
-          icon: Icons.account_balance_wallet_outlined,
           title: '预算金额',
-          subtitle: amt == 0 ? '未设置' : '¥${amt.toStringAsFixed(2)}',
+          rightText: amt == 0 ? '未设置' : '¥${amt.toStringAsFixed(2)}',
           onTap: () async {
             final controller = TextEditingController(
               text: amt == 0 ? '' : amt.toStringAsFixed(2),
             );
+            final formKey = GlobalKey<FormState>();
             final newAmount = await showDialog<double>(
               context: context,
               builder: (ctx) => AlertDialog(
                 title: const Text('设置月度预算'),
-                content: TextField(
-                  controller: controller,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    hintText: '请输入金额',
-                    prefixText: '¥ ',
+                content: Form(
+                  key: formKey,
+                  child: TextFormField(
+                    controller: controller,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      hintText: '请输入金额',
+                      prefixText: '¥ ',
+                    ),
+                    // V3.3 (O2)：PRD §10.7.3 校验 > 0
+                    validator: (v) {
+                      final parsed = double.tryParse((v ?? '').trim());
+                      if (parsed == null || parsed <= 0) {
+                        return '请输入大于 0 的金额';
+                      }
+                      return null;
+                    },
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                   ),
                 ),
                 actions: [
@@ -423,6 +462,7 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   TextButton(
                     onPressed: () {
+                      if (!(formKey.currentState?.validate() ?? false)) return;
                       final v = double.tryParse(controller.text.trim());
                       Navigator.pop(ctx, v);
                     },
@@ -431,7 +471,7 @@ class SettingsScreen extends ConsumerWidget {
                 ],
               ),
             );
-            if (newAmount != null && newAmount >= 0) {
+            if (newAmount != null && newAmount > 0) {
               final db = await ref.read(databaseProvider.future);
               await db.upsertMonthlyBudget(
                 month: month,
@@ -444,6 +484,48 @@ class SettingsScreen extends ConsumerWidget {
       },
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+}
+
+/// N11：对齐原型 .switch：40×24 圆角12（关闭 #E0D5DA / 开启粉 #E88BA3），滑块 20px 白圆带轻投影。
+/// 纯展示组件：点击由外层 InkWell 处理，此处不拦截。
+class _PinkSwitch extends StatelessWidget {
+  final bool value;
+
+  const _PinkSwitch({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 40,
+        height: 24,
+        decoration: BoxDecoration(
+          color: value ? AppColors.primary : const Color(0xFFE0D5DA),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.all(2),
+        child: Align(
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: 20,
+            height: 20,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x26000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

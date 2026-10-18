@@ -67,14 +67,11 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Time granularity toggle
-            _buildGranularityToggle(granularity),
+            // N1：顶部一行双开关（左类型 收入/支出 flex:1，右粒度 年/月/日 flex:1.4），对齐原型 stats-switch-row
+            _buildStatsSwitchRow(granularity, recordType),
 
             // Horizontal date picker
             _buildDatePicker(granularity, selectedDate),
-
-            // Expense/Income type toggle
-            _buildTypeToggle(recordType),
 
             const SizedBox(height: 16),
 
@@ -86,45 +83,124 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     );
   }
 
-  Widget _buildGranularityToggle(TimeGranularity granularity) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      color: AppColors.surface,
+  /// N1：顶部一行双开关（对齐原型 stats-switch-row：左类型 flex:1、右粒度 flex:1.4，灰底圆角10，选中白底+轻投影）
+  Widget _buildStatsSwitchRow(TimeGranularity granularity, RecordType recordType) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildGranularitySegment('年', TimeGranularity.year, granularity),
+          Expanded(
+            // 左类型开关 flex:5（与右粒度 7 近似原型 1:1.4，flex 必须为 int）
+            flex: 5,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: AppColors.switchTrack,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  _buildStatsSeg(
+                    '收入',
+                    selected: recordType == RecordType.income,
+                    income: true,
+                    onTap: () {
+                      ref.read(statisticsRecordTypeProvider.notifier).state =
+                          RecordType.income;
+                    },
+                  ),
+                  _buildStatsSeg(
+                    '支出',
+                    selected: recordType == RecordType.expense,
+                    income: false,
+                    onTap: () {
+                      ref.read(statisticsRecordTypeProvider.notifier).state =
+                          RecordType.expense;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(width: 8),
-          _buildGranularitySegment('月', TimeGranularity.month, granularity),
-          const SizedBox(width: 8),
-          _buildGranularitySegment('日', TimeGranularity.day, granularity),
+          Expanded(
+            // 右粒度开关 flex:7（与左 5 近似原型 1:1.4）
+            flex: 7,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: AppColors.switchTrack,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  _buildStatsSeg(
+                    '年',
+                    selected: granularity == TimeGranularity.year,
+                    onTap: () {
+                      ref.read(statisticsGranularityProvider.notifier).state =
+                          TimeGranularity.year;
+                    },
+                  ),
+                  _buildStatsSeg(
+                    '月',
+                    selected: granularity == TimeGranularity.month,
+                    onTap: () {
+                      ref.read(statisticsGranularityProvider.notifier).state =
+                          TimeGranularity.month;
+                    },
+                  ),
+                  _buildStatsSeg(
+                    '日',
+                    selected: granularity == TimeGranularity.day,
+                    onTap: () {
+                      ref.read(statisticsGranularityProvider.notifier).state =
+                          TimeGranularity.day;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildGranularitySegment(String label, TimeGranularity value, TimeGranularity current) {
-    final isSelected = value == current;
-    return GestureDetector(
-      onTap: () {
-        ref.read(statisticsGranularityProvider.notifier).state = value;
-        // M3 修复：切粒度不再重置日期，保留用户已选周期以支持"年→月→日"层层下钻
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-        decoration: BoxDecoration(
-          gradient: isSelected
-              ? const LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryLight],
-                )
-              : null,
-          color: isSelected ? null : AppColors.background,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: AppTypography.labelLarge.copyWith(
-            color: isSelected ? Colors.white : AppColors.textSecondary,
+  Widget _buildStatsSeg(
+    String label, {
+    required bool selected,
+    required VoidCallback onTap,
+    bool income = false,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: selected
+                ? const [
+                    BoxShadow(
+                      color: Color(0x0F000000),
+                      blurRadius: 3,
+                      offset: Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+              color: selected
+                  ? (income ? AppColors.incomeDark : AppColors.primaryDark)
+                  : AppColors.textSecondary,
+            ),
           ),
         ),
       ),
@@ -251,55 +327,6 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     );
   }
 
-  Widget _buildTypeToggle(RecordType recordType) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildTypeSegment('收入', RecordType.income, recordType),
-          ),
-          Expanded(
-            child: _buildTypeSegment('支出', RecordType.expense, recordType),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTypeSegment(String label, RecordType value, RecordType current) {
-    final isSelected = value == current;
-    return GestureDetector(
-      onTap: () {
-        ref.read(statisticsRecordTypeProvider.notifier).state = value;
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          gradient: isSelected
-              ? const LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryLight],
-                )
-              : null,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: AppTypography.labelLarge.copyWith(
-              color: isSelected ? Colors.white : AppColors.textSecondary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildStatisticsContent(RecordType recordType) {
     final selectedDate = ref.watch(statisticsSelectedDateProvider);
     final granularity = ref.watch(statisticsGranularityProvider);
@@ -340,9 +367,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
     return Column(
       children: [
-        // Total amount
+        // Total amount（N8：对齐原型 stats-summary，仅显示周期，不带类型后缀）
         totalAsync.when(
-          data: (total) => _buildTotalAmount(total, typeLabel, periodLabel, recordType),
+          data: (total) => _buildTotalAmount(total, periodLabel, recordType),
           loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator())),
           error: (_, __) => const SizedBox.shrink(),
         ),
@@ -355,7 +382,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             }
             return Column(
               children: [
-                // V3.3 (B2)：一句话洞察卡（总额下方、图表上方；无数据不展示）
+                // V3.3 (B2)：一句话洞察卡（总额下方、图表上方；无数据不展示）。
+                // §10.6#4：前缀对齐原型「本月」（不随周期变化）。
                 InsightCard(
                   incomeTotal: recordType == RecordType.expense
                       ? (oppositeTotalAsync.valueOrNull ?? 0)
@@ -365,14 +393,15 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       : (oppositeTotalAsync.valueOrNull ?? 0),
                   summaries: summaries,
                   categories: categories,
-                  periodLabel: periodLabel,
+                  periodLabel: '本月',
                   typeLabel: typeLabel,
                 ),
                 SpendingPieChart(
                   summaries: summaries,
                   categories: categories,
                   totalSpending: totalAsync.valueOrNull ?? 0,
-                  typeLabel: '$periodLabel$typeLabel',
+                  // §10.6#3：环形图中心对齐原型「月支出 / 月收入」
+                  typeLabel: '月$typeLabel',
                   isIncome: recordType == RecordType.income,
                 ),
                 const SizedBox(height: 24),
@@ -417,7 +446,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     }
   }
 
-  Widget _buildTotalAmount(double total, String typeLabel, String periodLabel, RecordType recordType) {
+  Widget _buildTotalAmount(double total, String periodLabel, RecordType recordType) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 24),
@@ -425,7 +454,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       child: Column(
         children: [
           Text(
-            '$periodLabel$typeLabel',
+            periodLabel,
             style: AppTypography.bodyMedium,
           ),
           const SizedBox(height: 8),

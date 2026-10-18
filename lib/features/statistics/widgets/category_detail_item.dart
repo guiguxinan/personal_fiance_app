@@ -61,11 +61,12 @@ class _CategoryDetailItemState extends ConsumerState<CategoryDetailItem> {
             child: Row(
               children: [
                 Container(
-                  width: 12,
-                  height: 12,
+                  // 对齐原型 legend-dot：8×8 圆角2
+                  width: 8,
+                  height: 8,
                   decoration: BoxDecoration(
                     color: color,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -189,14 +190,17 @@ class _CategoryDetailSubList extends ConsumerWidget {
           child: Column(
             children: records.map((r) {
               final sign = isIncome ? '+' : '-';
+              // §10.6#2：子行对齐原型「10/18 沙县小吃 -¥45」：月/日 日期格式 + 备注（有则显示）
+              final noteText = (r.note != null && r.note!.isNotEmpty) ? ' ${r.note}' : '';
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
-                        '${r.recordDate.month}月${r.recordDate.day}日',
+                        '${r.recordDate.month}/${r.recordDate.day}$noteText',
                         style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     Text(
