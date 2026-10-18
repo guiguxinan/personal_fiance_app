@@ -56,7 +56,7 @@ class MonthlySummaryCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 胶囊切换：支出 / 收入
+          // 胶囊切换：收入 / 支出（U1：收入置前）
           Container(
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.25),
@@ -67,17 +67,17 @@ class MonthlySummaryCard extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildToggleButton(
-                  label: '支出',
-                  isSelected: isExpense,
-                  onTap: () {
-                    ref.read(selectedTypeProvider.notifier).state = 'expense';
-                  },
-                ),
-                _buildToggleButton(
                   label: '收入',
                   isSelected: !isExpense,
                   onTap: () {
                     ref.read(selectedTypeProvider.notifier).state = 'income';
+                  },
+                ),
+                _buildToggleButton(
+                  label: '支出',
+                  isSelected: isExpense,
+                  onTap: () {
+                    ref.read(selectedTypeProvider.notifier).state = 'expense';
                   },
                 ),
               ],

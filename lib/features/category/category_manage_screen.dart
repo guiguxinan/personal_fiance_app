@@ -126,34 +126,6 @@ class CategoryManageScreen extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => setState(() => selectedType = 'expense'),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: selectedType == 'expense'
-                                ? AppColors.primary.withValues(alpha: 0.1)
-                                : AppColors.background,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: selectedType == 'expense' ? AppColors.primary : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '支出',
-                              style: TextStyle(
-                                color: selectedType == 'expense' ? AppColors.primary : AppColors.textSecondary,
-                                fontWeight: selectedType == 'expense' ? FontWeight.w600 : FontWeight.normal,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: GestureDetector(
                         onTap: () => setState(() => selectedType = 'income'),
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -173,6 +145,34 @@ class CategoryManageScreen extends ConsumerWidget {
                               style: TextStyle(
                                 color: selectedType == 'income' ? AppColors.income : AppColors.textSecondary,
                                 fontWeight: selectedType == 'income' ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => selectedType = 'expense'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: selectedType == 'expense'
+                                ? AppColors.primary.withValues(alpha: 0.1)
+                                : AppColors.background,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: selectedType == 'expense' ? AppColors.primary : Colors.transparent,
+                              width: 2,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '支出',
+                              style: TextStyle(
+                                color: selectedType == 'expense' ? AppColors.primary : AppColors.textSecondary,
+                                fontWeight: selectedType == 'expense' ? FontWeight.w600 : FontWeight.normal,
                               ),
                             ),
                           ),

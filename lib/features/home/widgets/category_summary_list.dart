@@ -38,68 +38,74 @@ class CategorySummaryList extends StatelessWidget {
       ..sort((a, b) => b.value.compareTo(a.value));
     final top4Entries = sortedEntries.take(4).toList();
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: 6,
-        mainAxisSpacing: 6,
-        childAspectRatio: 1.6,
-      ),
-      itemCount: top4Entries.length,
-      itemBuilder: (context, index) {
-        final entry = top4Entries[index];
-        final category = byId[entry.key];
-        if (category == null) return const SizedBox.shrink();
+    // M6 修复：弃用 GridView 固定 childAspectRatio（卡片高度不足导致金额溢出），
+    // 改为 Row + Expanded 自适应高度布局——卡片高度由内容撑开，大字体/窄屏均不溢出。
+    final top4 = top4Entries.take(4).toList();
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0x0A1F2A27),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < top4.length; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            Expanded(child: _buildCard(byId[top4[i].key], top4[i].value)),
+          ],
+          // 不足 4 个分类时用空槽占位，保持四列等宽
+          for (var i = top4.length; i < 4; i++)
+            const Expanded(child: SizedBox.shrink()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCard(Category? category, double amount) {
+    if (category == null) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0x0A1F2A27),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                category.icon,
-                style: const TextStyle(fontSize: 18),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                category.name,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: AppColors.textSecondary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 1),
-              Text(
-                // 原型为纯数字整数（如 129），无 ¥、无符号
-                entry.value.round().toString(),
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            category.icon,
+            style: const TextStyle(fontSize: 18),
           ),
-        );
-      },
+          const SizedBox(height: 3),
+          Text(
+            category.name,
+            style: const TextStyle(
+              fontSize: 10,
+              color: AppColors.textSecondary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 1),
+          Text(
+            // 原型为纯数字整数（如 129），无 ¥、无符号
+            amount.round().toString(),
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }

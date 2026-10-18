@@ -123,9 +123,9 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildTypeButton('支出', 'expense'),
-          const SizedBox(width: 16),
           _buildTypeButton('收入', 'income'),
+          const SizedBox(width: 16),
+          _buildTypeButton('支出', 'expense'),
         ],
       ),
     );

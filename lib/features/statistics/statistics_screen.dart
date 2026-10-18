@@ -261,10 +261,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       child: Row(
         children: [
           Expanded(
-            child: _buildTypeSegment('支出', RecordType.expense, recordType),
+            child: _buildTypeSegment('收入', RecordType.income, recordType),
           ),
           Expanded(
-            child: _buildTypeSegment('收入', RecordType.income, recordType),
+            child: _buildTypeSegment('支出', RecordType.expense, recordType),
           ),
         ],
       ),

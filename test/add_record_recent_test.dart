@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:personal_finance_app/app.dart';
 import 'package:personal_finance_app/data/database/app_database.dart';
-import 'package:personal_finance_app/features/record/add_record_screen.dart';
 import 'package:personal_finance_app/providers/database_provider.dart';
 
 void main() {
@@ -96,14 +95,4 @@ void main() {
     // 与 widget 渲染时序竞争难稳定复现。功能由 record_flow_test M3b 长按
     // → action-copy 端到端覆盖（点击 prefill 后 find.text('30') 验证）。
   }, skip: true);
-}
-
-// 真正 push 进 AddRecordScreen 的入口
-class _PrefillAddRecordPage extends StatelessWidget {
-  final Record prefillRecord;
-  const _PrefillAddRecordPage({required this.prefillRecord});
-  @override
-  Widget build(BuildContext context) {
-    return AddRecordScreen(prefillRecord: prefillRecord);
-  }
 }
