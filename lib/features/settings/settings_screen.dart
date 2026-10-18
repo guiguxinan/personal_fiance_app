@@ -422,8 +422,9 @@ class SettingsScreen extends ConsumerWidget {
     return budgetAsync.when(
       data: (b) {
         final amt = b?.amount ?? 0;
-        // N9：对齐原型「预算金额 · ¥6,000 ›」（金额在右侧辅助文位置 + 箭头）
+        // V3.3 P0 优化：预算金额行前加 💰 emoji 图标（与 🎯 月度预算开关行风格一致）
         return _buildSettingsItem(
+          emoji: '💰',
           title: '预算金额',
           rightText: amt == 0 ? '未设置' : '¥${amt.toStringAsFixed(2)}',
           onTap: () async {

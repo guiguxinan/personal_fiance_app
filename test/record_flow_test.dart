@@ -195,8 +195,8 @@ void main() {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
     await tester.pumpAndSettle();
 
-    // 验证 50 出现在列表
-    expect(find.text('50'), findsWidgets);
+    // 验证 50 出现在列表（V3.3 P0 优化后金额带 ¥，用 textContaining 匹配 ¥50.00 / ¥50）
+    expect(find.textContaining('50'), findsWidgets);
 
     // 直接 tap RecordListItem（Dismissible 内部第一项）
     final recordItem = find.byType(RecordListItem).first;

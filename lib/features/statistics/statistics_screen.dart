@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
-import '../../core/utils/currency_formatter.dart';
 import '../../data/database/app_database.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/database_provider.dart';
@@ -458,12 +457,31 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             style: AppTypography.bodyMedium,
           ),
           const SizedBox(height: 8),
-          Text(
-            CurrencyFormatter.format(total),
-            style: AppTypography.amountLarge.copyWith(
-              fontSize: 42,
-              color: recordType == RecordType.expense ? AppColors.expense : AppColors.income,
-            ),
+          // 原型 V3.1：¥ 符号灰色小型 + 大金额
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '¥',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: AppColors.textHint,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                total.toStringAsFixed(2),
+                style: AppTypography.amountLarge.copyWith(
+                  fontSize: 42,
+                  color: recordType == RecordType.expense
+                      ? AppColors.expense
+                      : AppColors.income,
+                ),
+              ),
+            ],
           ),
         ],
       ),

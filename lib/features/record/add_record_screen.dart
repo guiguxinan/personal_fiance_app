@@ -70,14 +70,30 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         elevation: 0,
-        leading: IconButton(
-          key: const Key('close-btn'),
-          // I7：关闭按钮对齐原型「✕」字符
-          icon: const Text(
-            '✕',
-            style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: GestureDetector(
+            key: const Key('close-btn'),
+            onTap: () => _confirmExit(context),
+            // 原型 V3.1 close：26×26 圆形 #FBE4EC 粉色底+ ✕ 字符
+            child: Container(
+              width: 26,
+              height: 26,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: AppColors.primaryLight,
+                shape: BoxShape.circle,
+              ),
+              child: const Text(
+                '✕',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                  height: 1.0,
+                ),
+              ),
+            ),
           ),
-          onPressed: () => _confirmExit(context),
         ),
         title: Text(
           '记一笔',
@@ -88,27 +104,37 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       body: Column(
         children: [
           // S2 修复：恢复 V2.1 布局——内容区可滚动，键盘固定底部始终可见
+          // V3.3 P1 优化：Listener 包裹 SingleChildScrollView，
+          // 只拦截滚动区内的点击收键盘（不拦截底部 numpad 自身的 tap）
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  // Type toggle
-                  _buildTypeToggle(),
+            child: Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: (_) {
+                if (_showNumpad) {
+                  setState(() => _showNumpad = false);
+                }
+              },
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    // Type toggle
+                    _buildTypeToggle(),
 
-                  // 金额显示（点击切换键盘显示，对齐 V3.0 N2）
-                  _buildAmountDisplay(),
+                    // 金额显示（点击切换键盘显示，对齐 V3.0 N2）
+                    _buildAmountDisplay(),
 
-                  // Category selection
-                  _buildCategoryGrid(),
+                    // Category selection
+                    _buildCategoryGrid(),
 
-                  // V3.0 N1：日期行（点击弹出日历选择器）
-                  _buildDateRow(),
+                    // V3.0 N1：日期行（点击弹出日历选择器）
+                    _buildDateRow(),
 
-                  // V3.0 N3：备注行（点击弹出输入框）
-                  _buildNoteRow(),
+                    // V3.0 N3：备注行（点击弹出输入框）
+                    _buildNoteRow(),
 
-                  const SizedBox(height: 16),
-                ],
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
             ),
           ),
@@ -466,12 +492,7 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 12),
-                child: Text('选择分类（$typeLabel $count 类）', style: AppTypography.titleMedium),
-              ),
-
-              // M3a：最近使用分类 pill 行
+              // V3.3 P1 优化：最近使用区上移到「选择分类」label 上方（对齐原型）
               recentAsync.when(
                 data: (recents) {
                   if (recents.isEmpty) return const SizedBox.shrink();
@@ -538,6 +559,12 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
                 },
                 loading: () => const SizedBox.shrink(),
                 error: (_, __) => const SizedBox.shrink(),
+              ),
+
+              // 「选择分类」label 移到最近使用区下方
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 12),
+                child: Text('选择分类（$typeLabel $count 类）', style: AppTypography.titleMedium),
               ),
 
               // 常规分类网格
@@ -700,7 +727,10 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       ));
     }
 
+    // V3.3 P1 修复：保存后强制重置首页 stream（drift stream 在跨页面时
+    // 可能存在 emit 竞态；invalidate 确保首页立即拿到新数据）。
     if (mounted) {
+      ref.invalidate(recordsByMonthProvider);
       // D3: 保存成功后，首页自动切到对应收支类型视图（原型 A6 / 6.1）
       ref.read(selectedTypeProvider.notifier).state = _recordType;
       Navigator.of(context).pop();

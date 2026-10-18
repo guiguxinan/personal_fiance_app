@@ -361,58 +361,141 @@ class CategoryManageScreen extends ConsumerWidget {
   void _showEditCategoryDialog(BuildContext context, WidgetRef ref, Category category) {
     final nameController = TextEditingController(text: category.name);
     String selectedIcon = category.icon;
+    String selectedType = category.type; // V3.3 优化：编辑也支持切换 type
 
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: const Text('编辑分类'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                maxLength: 10,
-                decoration: const InputDecoration(labelText: '分类名称'),
-              ),
-              const SizedBox(height: 16),
-              const Text('选择图标', style: TextStyle(fontSize: 12)),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 150,
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 6,
-                    mainAxisSpacing: 4,
-                    crossAxisSpacing: 4,
-                  ),
-                  itemCount: availableIcons.length,
-                  itemBuilder: (context, index) {
-                    final icon = availableIcons[index];
-                    final isSelected = icon == selectedIcon;
-                    return GestureDetector(
-                      onTap: () => setState(() => selectedIcon = icon),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppColors.primary.withValues(alpha: 0.2)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppColors.primary
-                                : Colors.transparent,
-                            width: 2,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // V3.3 优化：编辑对话框排版对齐「新增分类」——补齐 type 切换
+                const Text('分类类型',
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => selectedType = 'income'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: selectedType == 'income'
+                                ? AppColors.income.withValues(alpha: 0.1)
+                                : AppColors.background,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: selectedType == 'income'
+                                  ? AppColors.income
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '收入',
+                              style: TextStyle(
+                                color: selectedType == 'income'
+                                    ? AppColors.income
+                                    : AppColors.textSecondary,
+                                fontWeight: selectedType == 'income'
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
                           ),
                         ),
-                        child: Center(
-                            child: Text(icon, style: const TextStyle(fontSize: 24))),
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => selectedType = 'expense'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: selectedType == 'expense'
+                                ? AppColors.primary.withValues(alpha: 0.1)
+                                : AppColors.background,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: selectedType == 'expense'
+                                  ? AppColors.primary
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '支出',
+                              style: TextStyle(
+                                color: selectedType == 'expense'
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
+                                fontWeight: selectedType == 'expense'
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameController,
+                  maxLength: 10,
+                  decoration: const InputDecoration(
+                    labelText: '分类名称',
+                    hintText: '例如：零食',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('选择图标', style: TextStyle(fontSize: 12)),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 150,
+                  child: GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 6,
+                      mainAxisSpacing: 4,
+                      crossAxisSpacing: 4,
+                    ),
+                    itemCount: availableIcons.length,
+                    itemBuilder: (context, index) {
+                      final icon = availableIcons[index];
+                      final isSelected = icon == selectedIcon;
+                      return GestureDetector(
+                        onTap: () => setState(() => selectedIcon = icon),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.primary.withValues(alpha: 0.2)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
+                          ),
+                          child: Center(
+                              child: Text(icon, style: const TextStyle(fontSize: 24))),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -427,6 +510,7 @@ class CategoryManageScreen extends ConsumerWidget {
                   category.id,
                   nameController.text.trim(),
                   selectedIcon,
+                  type: selectedType, // V3.3 优化：透传 type 修改
                 );
                 if (dialogCtx.mounted) {
                   Navigator.pop(dialogCtx);
