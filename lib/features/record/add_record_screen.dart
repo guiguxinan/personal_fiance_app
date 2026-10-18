@@ -290,28 +290,33 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
   }
 
   /// V3.0 N1：日期行（form-row 样式）
+  /// 真机 bug 修复：原 InkWell 包裹 Row + 嵌套在 Container(color:surface) 中
+  /// 导致部分真机 InkWell tap 区域被吃。改用 GestureDetector(behavior: opaque) 显式吞事件。
   Widget _buildDateRow() {
     final dateFormat = DateFormat('yyyy年MM月dd日', 'zh_CN');
     return Container(
       margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: AppColors.surface,
-      child: InkWell(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: _pickDate,
-        child: Row(
-          children: [
-            const Icon(Icons.calendar_today_outlined,
-                size: 18, color: AppColors.textHint),
-            const SizedBox(width: 12),
-            Text('日期', style: AppTypography.bodyLarge),
-            const Spacer(),
-            Text(
-              dateFormat.format(_selectedDate),
-              style: AppTypography.bodyLarge.copyWith(color: AppColors.primary),
-            ),
-            const SizedBox(width: 6),
-            const Icon(Icons.chevron_right, color: AppColors.textHint, size: 18),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              const Icon(Icons.calendar_today_outlined,
+                  size: 18, color: AppColors.textHint),
+              const SizedBox(width: 12),
+              Text('日期', style: AppTypography.bodyLarge),
+              const Spacer(),
+              Text(
+                dateFormat.format(_selectedDate),
+                style: AppTypography.bodyLarge.copyWith(color: AppColors.primary),
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right, color: AppColors.textHint, size: 18),
+            ],
+          ),
         ),
       ),
     );

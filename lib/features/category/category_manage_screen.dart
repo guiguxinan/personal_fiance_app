@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../data/database/app_database.dart';
+import '../../providers/category_provider.dart';
 import '../../providers/database_provider.dart';
 
 const List<String> availableIcons = [
@@ -16,6 +17,12 @@ class CategoryManageScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // V3.1 P0 真机 bug 修复：原 FutureBuilder + _getCategories() 是一次性 getAllCategories()，
+    // 新增/编辑/删除后数据库 stream 变化但页面不刷新。
+    // 改为 watch categoriesStreamProvider（已经是 Stream<List<Category>>），
+    // 数据库 stream emit 时列表自动 rebuild —— 实现「实时更新」。
+    final categoriesAsync = ref.watch(categoriesStreamProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -34,36 +41,43 @@ class CategoryManageScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: _buildCategoryList(context, ref),
+      body: categoriesAsync.when(
+        data: (categories) => _buildCategoryList(context, ref, categories),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text(
+              '加载分类失败：$e',
+              style: TextStyle(color: AppColors.expense),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildCategoryList(BuildContext context, WidgetRef ref) {
-    return FutureBuilder<List<Category>>(
-      future: _getCategories(ref),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-        final categories = snapshot.data ?? [];
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: categories.length,
-          itemBuilder: (context, index) {
-            final category = categories[index];
-            return _buildCategoryItem(context, ref, category);
-          },
-        );
+  Widget _buildCategoryList(BuildContext context, WidgetRef ref, List<Category> categories) {
+    if (categories.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            '暂无分类，点右上角 + 新增',
+            style: TextStyle(color: AppColors.textHint),
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: categories.length,
+      itemBuilder: (context, index) {
+        final category = categories[index];
+        return _buildCategoryItem(context, ref, category);
       },
     );
-  }
-
-  Future<List<Category>> _getCategories(WidgetRef ref) async {
-    final database = await ref.read(databaseProvider.future);
-    return database.getAllCategories();
   }
 
   Widget _buildCategoryItem(BuildContext context, WidgetRef ref, Category category) {
@@ -107,11 +121,11 @@ class CategoryManageScreen extends ConsumerWidget {
   void _showAddCategoryDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
     String selectedIcon = availableIcons[0];
-    String selectedType = 'expense'; // O3 修复：新增分类支持选择类型
+    String selectedType = 'expense';
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
+      builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: const Text('新增分类'),
           content: SingleChildScrollView(
@@ -119,8 +133,8 @@ class CategoryManageScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // O3 修复：类型选择
-                const Text('分类类型', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                const Text('分类类型',
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -135,7 +149,9 @@ class CategoryManageScreen extends ConsumerWidget {
                                 : AppColors.background,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: selectedType == 'income' ? AppColors.income : Colors.transparent,
+                              color: selectedType == 'income'
+                                  ? AppColors.income
+                                  : Colors.transparent,
                               width: 2,
                             ),
                           ),
@@ -143,8 +159,12 @@ class CategoryManageScreen extends ConsumerWidget {
                             child: Text(
                               '收入',
                               style: TextStyle(
-                                color: selectedType == 'income' ? AppColors.income : AppColors.textSecondary,
-                                fontWeight: selectedType == 'income' ? FontWeight.w600 : FontWeight.normal,
+                                color: selectedType == 'income'
+                                    ? AppColors.income
+                                    : AppColors.textSecondary,
+                                fontWeight: selectedType == 'income'
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
                               ),
                             ),
                           ),
@@ -163,7 +183,9 @@ class CategoryManageScreen extends ConsumerWidget {
                                 : AppColors.background,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: selectedType == 'expense' ? AppColors.primary : Colors.transparent,
+                              color: selectedType == 'expense'
+                                  ? AppColors.primary
+                                  : Colors.transparent,
                               width: 2,
                             ),
                           ),
@@ -171,8 +193,12 @@ class CategoryManageScreen extends ConsumerWidget {
                             child: Text(
                               '支出',
                               style: TextStyle(
-                                color: selectedType == 'expense' ? AppColors.primary : AppColors.textSecondary,
-                                fontWeight: selectedType == 'expense' ? FontWeight.w600 : FontWeight.normal,
+                                color: selectedType == 'expense'
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
+                                fontWeight: selectedType == 'expense'
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
                               ),
                             ),
                           ),
@@ -214,11 +240,14 @@ class CategoryManageScreen extends ConsumerWidget {
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: isSelected ? AppColors.primary : Colors.transparent,
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : Colors.transparent,
                               width: 2,
                             ),
                           ),
-                          child: Center(child: Text(icon, style: const TextStyle(fontSize: 24))),
+                          child: Center(
+                              child: Text(icon, style: const TextStyle(fontSize: 24))),
                         ),
                       );
                     },
@@ -229,7 +258,7 @@ class CategoryManageScreen extends ConsumerWidget {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogCtx),
               child: const Text('取消'),
             ),
             TextButton(
@@ -241,9 +270,9 @@ class CategoryManageScreen extends ConsumerWidget {
                   selectedIcon,
                   type: selectedType,
                 );
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  (context as Element).markNeedsBuild();
+                if (dialogCtx.mounted) {
+                  Navigator.pop(dialogCtx);
+                  // stream emit → 列表自动重建（无需 markNeedsBuild）
                 }
               },
               child: const Text('添加'),
@@ -260,7 +289,7 @@ class CategoryManageScreen extends ConsumerWidget {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
+      builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: const Text('编辑分类'),
           content: Column(
@@ -295,11 +324,14 @@ class CategoryManageScreen extends ConsumerWidget {
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: isSelected ? AppColors.primary : Colors.transparent,
+                            color: isSelected
+                                ? AppColors.primary
+                                : Colors.transparent,
                             width: 2,
                           ),
                         ),
-                        child: Center(child: Text(icon, style: const TextStyle(fontSize: 24))),
+                        child: Center(
+                            child: Text(icon, style: const TextStyle(fontSize: 24))),
                       ),
                     );
                   },
@@ -309,17 +341,21 @@ class CategoryManageScreen extends ConsumerWidget {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogCtx),
               child: const Text('取消'),
             ),
             TextButton(
               onPressed: () async {
                 if (nameController.text.trim().isEmpty) return;
                 final database = await ref.read(databaseProvider.future);
-                await database.updateCategory(category.id, nameController.text.trim(), selectedIcon);
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  (context as Element).markNeedsBuild();
+                await database.updateCategory(
+                  category.id,
+                  nameController.text.trim(),
+                  selectedIcon,
+                );
+                if (dialogCtx.mounted) {
+                  Navigator.pop(dialogCtx);
+                  // stream emit → 列表自动重建
                 }
               },
               child: const Text('保存'),
@@ -333,12 +369,12 @@ class CategoryManageScreen extends ConsumerWidget {
   void _confirmDelete(BuildContext context, WidgetRef ref, Category category) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Text('确定删除？'),
         content: Text('删除分类「${category.name}」后，相关记账记录将保留但无法选择该分类。'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogCtx),
             child: const Text('取消'),
           ),
           TextButton(
@@ -346,14 +382,14 @@ class CategoryManageScreen extends ConsumerWidget {
               try {
                 final database = await ref.read(databaseProvider.future);
                 await database.deleteCategory(category.id);
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  (context as Element).markNeedsBuild();
+                if (dialogCtx.mounted) {
+                  Navigator.pop(dialogCtx);
+                  // stream emit → 列表自动重建
                 }
               } catch (e) {
                 // M2 修复：外键约束（分类有历史记录）异常 → 友好 Toast 提示
                 if (context.mounted) {
-                  Navigator.pop(context);
+                  Navigator.pop(dialogCtx);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('该分类已有 ${category.name} 的记账记录，请先迁移或删除记录'),

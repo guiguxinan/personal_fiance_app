@@ -92,6 +92,29 @@
 
 ---
 
+## 1.4 V3.1 P0+ 真机测试修复（2026-10-18 第二次全方位测试发现）
+
+> **基线**：V3.1 P0 已完成（46/50 tests + APK 57.3MB）
+> **本轮目标**：真机测试发现的 4 个功能缺陷 + 1 个优化项
+> **结果**：0 issues · **46/50 tests passed**（不变）· Release APK 57.3MB
+
+| 编号 | 严重度 | 缺陷/优化 | 根因 | 修复方案 | 状态 |
+|---|---|---|---|---|---|
+| **F1** | 🟠 重要 | 导入/备份点击后自动保存，无"取消/保存"步骤 | `_exportCsv`/`_exportJson` 直接调 `Share.shareXFiles` 弹系统分享 | 改为先生成文件 → 弹"取消/分享"预览对话框（显示文件名+路径）→ 用户点"分享"再唤起系统分享面板 | ✅ |
+| **F2** | 🟠 重要 | 分类管理新增自定义分类后页面不实时更新 | `_buildCategoryList` 用 `FutureBuilder` + 一次性 `getAllCategories()` | 改用 `ref.watch(categoriesStreamProvider)` 监听数据库 stream，新增 emit → 列表自动 rebuild | ✅ |
+| **F3** | 🟠 重要 | 分类管理编辑自定义分类后页面不实时更新 | 同 F2（FutureBuilder 不响应 stream 变化）| 同 F2 修复 | ✅ |
+| **F4** | 🟠 重要 | 分类管理删除自定义分类后页面不实时更新 | 同 F2 | 同 F2 修复 | ✅ |
+| **F5** | 🟠 重要 | 真机-记一笔点击日期行无法弹出日历选择器 | `_buildDateRow` 用 `InkWell` 嵌套在 `Container(color: surface)` 内，真机上 InkWell tap 区域被吃 | 改用 `GestureDetector(behavior: HitTestBehavior.opaque)` 显式吞事件 + 加 `Padding` 包裹（消除 Container 嵌套对 tap 的影响）| ✅ |
+| **O1** | 🟢 优化 | 列表左滑露出编辑/删除 | 原版左滑只露单个删除按钮 | 改左滑露出【编辑（橙）+ 删除（红）】双按钮（同时显示），弹底部菜单让用户选择"编辑/删除" | ✅ |
+
+**关键文件改动**：
+- `lib/features/category/category_manage_screen.dart`（F2/F3/F4 修复：用 stream 替换 FutureBuilder）
+- `lib/features/record/add_record_screen.dart`（F5 修复：日期行改用 GestureDetector）
+- `lib/features/settings/settings_screen.dart`（F1 修复：CSV/JSON 导出加预览对话框）
+- `lib/features/home/widgets/record_list_item.dart`（O1 优化：左滑双按钮 + 弹底部菜单）
+
+---
+
 ## 2. V3.0 关键实现细节
 
 ### 2.1 状态机变化（add_record_screen.dart）

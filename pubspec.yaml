@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   cupertino_icons: ^1.0.6
   flutter_riverpod: ^2.4.9
   drift: ^2.14.1
@@ -16,7 +18,7 @@ dependencies:
   path_provider: ^2.1.1
   path: ^1.8.3
   fl_chart: ^0.66.0
-  intl: ^0.18.1
+  intl: ^0.20.3
   uuid: ^4.2.1
   share_plus: ^10.1.4
   file_picker: ^8.1.7

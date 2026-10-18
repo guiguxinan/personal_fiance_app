@@ -146,21 +146,50 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  /// M1 修复：导出 CSV 改为「先预览内容 + 用户确认后保存/分享」
+  /// 修复原因：原版点击后直接弹系统分享，用户期望"在 App 内选保存或取消"
   Future<void> _exportCsv(BuildContext context, WidgetRef ref) async {
     try {
       final database = await ref.read(databaseProvider.future);
       final file = await DataExporter(database).exportToCsv();
-      // share_plus 10.x：使用 Share.shareXFiles（兼容 API）
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: '轻记收支记录 ${DateTime.now().toIso8601String().substring(0, 10)}',
-      );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('已导出 CSV'),
-            backgroundColor: AppColors.primary,
+      // 文件已生成；弹预览对话框让用户选择「分享」或「取消」
+      if (!context.mounted) return;
+      final action = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('导出 CSV'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('已生成 ${file.uri.pathSegments.last}',
+                    style: AppTypography.bodyMedium),
+                const SizedBox(height: 8),
+                Text('路径：${file.path}',
+                    style: AppTypography.labelSmall.copyWith(color: AppColors.textHint)),
+                const SizedBox(height: 12),
+                const Text('点击"分享"唤起系统分享面板（可保存到文件或分享到其他 App）。',
+                    style: AppTypography.bodyMedium),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'share'),
+              child: const Text('分享'),
+            ),
+          ],
+        ),
+      );
+      if (action == 'share' && context.mounted) {
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: '轻记收支记录 ${DateTime.now().toIso8601String().substring(0, 10)}',
         );
       }
     } on EmptyExportException {
@@ -181,20 +210,48 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
+  /// M1 修复：备份 JSON 改为「先预览内容 + 用户确认后保存/分享」
   Future<void> _exportJson(BuildContext context, WidgetRef ref) async {
     try {
       final database = await ref.read(databaseProvider.future);
       final file = await DataExporter(database).exportToJson(suffix: '备份');
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: '轻记备份 ${DateTime.now().toIso8601String().substring(0, 10)}',
-      );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('已保存到 ${file.uri.pathSegments.last}'),
-            backgroundColor: AppColors.primary,
+      if (!context.mounted) return;
+      final action = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('备份 (JSON)'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('已生成 ${file.uri.pathSegments.last}',
+                    style: AppTypography.bodyMedium),
+                const SizedBox(height: 8),
+                Text('路径：${file.path}',
+                    style: AppTypography.labelSmall.copyWith(color: AppColors.textHint)),
+                const SizedBox(height: 12),
+                const Text('点击"分享"唤起系统分享面板（可保存到文件或分享到其他 App）。',
+                    style: AppTypography.bodyMedium),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'share'),
+              child: const Text('分享'),
+            ),
+          ],
+        ),
+      );
+      if (action == 'share' && context.mounted) {
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: '轻记备份 ${DateTime.now().toIso8601String().substring(0, 10)}',
         );
       }
     } catch (e) {
