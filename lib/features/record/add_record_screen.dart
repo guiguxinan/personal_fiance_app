@@ -11,8 +11,10 @@ import '../../providers/record_provider.dart';
 
 class AddRecordScreen extends ConsumerStatefulWidget {
   final Record? recordToEdit;
+  /// V3.1 (M3b)：复记预填（与编辑互斥；预填=新记录，日期=今天，备注清空）
+  final Record? prefillRecord;
 
-  const AddRecordScreen({super.key, this.recordToEdit});
+  const AddRecordScreen({super.key, this.recordToEdit, this.prefillRecord});
 
   @override
   ConsumerState<AddRecordScreen> createState() => _AddRecordScreenState();
@@ -41,6 +43,12 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       // 编辑模式：日期回填为原记录日期
       _selectedDate = widget.recordToEdit!.recordDate;
       _noteController.text = widget.recordToEdit!.note ?? '';
+    } else if (widget.prefillRecord != null) {
+      // M3b 复记：预填 type/amount/categoryId；日期=今天；备注清空
+      _amountInput = widget.prefillRecord!.amount.toStringAsFixed(2);
+      _selectedCategoryId = widget.prefillRecord!.categoryId;
+      _recordType = widget.prefillRecord!.type;
+      _selectedDate = DateTime.now();
     }
   }
 
@@ -75,7 +83,7 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       ),
       body: Column(
         children: [
-          // 顶部内容区（可滚动）：切换、金额、分类、日期、备注 + 条件显示的键盘
+          // S2 修复：恢复 V2.1 布局——内容区可滚动，键盘固定底部始终可见
           Expanded(
             child: SingleChildScrollView(
               child: Column(
@@ -95,14 +103,13 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
                   // V3.0 N3：备注行（点击弹出输入框）
                   _buildNoteRow(),
 
-                  // V3.0 N2：九宫格数字键盘（默认折叠，点击金额区才显示）
-                  if (_showNumpad) _buildNumpad(),
-
                   const SizedBox(height: 16),
                 ],
               ),
             ),
           ),
+          // S2 修复：键盘作为 Column 第二项，固定在 bottomNavigationBar 上方，_showNumpad 仅控制显隐
+          if (_showNumpad) _buildNumpad(),
         ],
       ),
       bottomNavigationBar: _buildBottomBar(),
@@ -261,6 +268,7 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
   /// - 限制总长度 9 位
   /// - 小数点仅允许一个
   /// - del 退格
+  /// - O5 修复：输入即净化（去前导 0、".5" → "0.5"、"12." → "12"）
   void _onNumpadTap(String key) {
     setState(() {
       if (key == 'del') {
@@ -272,6 +280,12 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
       if (_amountInput.length >= 9) return;
       if (key == '.' && _amountInput.contains('.')) return;
       _amountInput += key;
+      // O5：去前导 0（保留单个 "0"）；孤立 "." 补 "0."
+      if (_amountInput.length > 1 && _amountInput.startsWith('0') && !_amountInput.startsWith('0.')) {
+        _amountInput = _amountInput.replaceFirst(RegExp(r'^0+'), '');
+        if (_amountInput.isEmpty) _amountInput = '0';
+      }
+      if (_amountInput == '.') _amountInput = '0.';
     });
   }
 
@@ -428,6 +442,8 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
 
   Widget _buildCategoryGrid() {
     final categoriesAsync = ref.watch(categoriesStreamProvider);
+    // M3a：最近使用分类（按当前收支类型近 30 天频次 Top 3）
+    final recentAsync = ref.watch(recentCategoriesProvider(_recordType));
 
     return categoriesAsync.when(
       data: (categories) {
@@ -447,6 +463,76 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
                 padding: const EdgeInsets.only(left: 4, bottom: 12),
                 child: Text('选择分类（$typeLabel $count 类）', style: AppTypography.titleMedium),
               ),
+
+              // M3a：最近使用分类 pill 行
+              recentAsync.when(
+                data: (recents) {
+                  if (recents.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '最近使用',
+                          style: TextStyle(fontSize: 11, color: AppColors.textHint),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 38,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: recents.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 8),
+                            itemBuilder: (_, i) {
+                              final c = recents[i];
+                              final isSelected = _selectedCategoryId == c.id;
+                              return GestureDetector(
+                                onTap: () => setState(() => _selectedCategoryId = c.id),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? AppColors.primary.withValues(alpha: 0.15)
+                                        : AppColors.background,
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? AppColors.primary
+                                          : AppColors.line,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(c.icon, style: const TextStyle(fontSize: 16)),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        c.name,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+
+              // 常规分类网格
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -588,7 +674,8 @@ class _AddRecordScreenState extends ConsumerState<AddRecordScreen> {
         id: drift.Value(widget.recordToEdit!.id),
         amount: drift.Value(amount),
         categoryId: drift.Value(_selectedCategoryId!),
-        recordDate: drift.Value(widget.recordToEdit!.recordDate),
+        // M1 修复：编辑模式下使用 _selectedDate（原写死 widget.recordToEdit!.recordDate，改日期不生效）
+        recordDate: drift.Value(_selectedDate),
         note: drift.Value(_noteController.text.isEmpty ? null : _noteController.text),
         type: drift.Value(_recordType),
         createdAt: drift.Value(widget.recordToEdit!.createdAt),

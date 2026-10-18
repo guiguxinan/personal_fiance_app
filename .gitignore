@@ -50,3 +50,7 @@ app.*.map.json
 
 # Android top-level build directory
 /android/build/
+
+# Test coverage output
+coverage/
+

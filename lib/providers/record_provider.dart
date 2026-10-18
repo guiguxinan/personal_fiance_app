@@ -88,3 +88,46 @@ final prevMonthTotalProvider = StreamProvider<double>((ref) async* {
 final categoryListProvider = Provider<List<CategoryModel>>((ref) {
   return defaultCategories;
 });
+
+// ─── V3.1 新增 providers ─────────────────────────────
+
+// M2 删除撤销：被删记录缓存（M2 物理删除+内存缓存方案）
+final lastDeletedRecordProvider = StateProvider<Record?>((ref) => null);
+
+// M3a 最近使用分类：按当前类型近 30 天使用频次 Top 3
+final recentCategoriesProvider =
+    StreamProvider.family<List<Category>, String>((ref, type) async* {
+  final databaseAsync = ref.watch(databaseProvider);
+  final database = await databaseAsync.when(
+    data: (db) => db,
+    loading: () => throw Exception('Database loading'),
+    error: (e, _) => throw e,
+  );
+  yield* database.watchRecentCategoriesByType(type);
+});
+
+// M4a 月度结余：income / expense 双聚合
+typedef MonthlyStats = ({double income, double expense});
+
+final monthlySurplusProvider =
+    StreamProvider.family<MonthlyStats, DateTime>((ref, month) async* {
+  final databaseAsync = ref.watch(databaseProvider);
+  final database = await databaseAsync.when(
+    data: (db) => db,
+    loading: () => throw Exception('Database loading'),
+    error: (e, _) => throw e,
+  );
+  yield* database.watchMonthlySurplus(month);
+});
+
+// M4b 月度预算
+final monthlyBudgetProvider =
+    StreamProvider.family<Budget?, DateTime>((ref, month) async* {
+  final databaseAsync = ref.watch(databaseProvider);
+  final database = await databaseAsync.when(
+    data: (db) => db,
+    loading: () => throw Exception('Database loading'),
+    error: (e, _) => throw e,
+  );
+  yield* database.watchMonthlyBudget(month);
+});

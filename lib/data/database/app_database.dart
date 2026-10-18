@@ -14,6 +14,8 @@ class Categories extends Table {
   TextColumn get type => text().withDefault(const Constant('expense'))(); // 'expense' or 'income'
   TextColumn get color => text().withDefault(const Constant('#A89AA0'))(); // HEX color string
   BoolColumn get isDefault => boolean().withDefault(const Constant(true))();
+  // V3.1 (M1/M6 配合)：隐藏分类不出现在常规分类区与统计图例，但可被「最近使用」快捷记账选中
+  BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
 }
 
 // Records table
@@ -28,12 +30,22 @@ class Records extends Table {
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 }
 
-@DriftDatabase(tables: [Categories, Records])
+// V3.1 (M4b)：月度预算表（按月独立预算金额 + 启用开关）
+class Budgets extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get month => text().withLength(min: 7, max: 7)(); // "YYYY-MM"
+  RealColumn get amount => real().withDefault(const Constant(0))();
+  BoolColumn get enabled => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+@DriftDatabase(tables: [Categories, Records, Budgets])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -56,6 +68,11 @@ class AppDatabase extends _$AppDatabase {
           );
           // Update existing categories with type='expense' and assign colors
           await _migrateExistingCategories();
+        }
+        // V3.1：新增 Category.isHidden 列 + 新建 Budgets 表
+        if (from < 3) {
+          await m.addColumn(categories, categories.isHidden);
+          await m.createTable(budgets);
         }
       },
     );
@@ -145,6 +162,7 @@ class AppDatabase extends _$AppDatabase {
       type: type ?? category.type,
       color: color ?? category.color,
       isDefault: category.isDefault,
+      isHidden: category.isHidden,
     ));
   }
 
@@ -238,6 +256,15 @@ class AppDatabase extends _$AppDatabase {
     return query.watchSingle().map((row) => row.read(records.amount.sum()) ?? 0.0);
   }
 
+  /// S1 修复：按任意起止日期范围聚合（年/月/日粒度共用）
+  Stream<double> watchTotalByRange(DateTime start, DateTime end, String type) {
+    final query = selectOnly(records)
+      ..addColumns([records.amount.sum()])
+      ..where(records.recordDate.isBetweenValues(start, end) & records.type.equals(type));
+
+    return query.watchSingle().map((row) => row.read(records.amount.sum()) ?? 0.0);
+  }
+
   Stream<Map<int, double>> watchCategorySummariesByMonth(DateTime month) {
     final startOfMonth = DateTime(month.year, month.month, 1);
     final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
@@ -303,6 +330,133 @@ class AppDatabase extends _$AppDatabase {
         }
       }
       return map;
+    });
+  }
+
+  /// S1 修复：按任意起止日期范围聚合分类明细（年/月/日粒度共用）
+  Stream<Map<int, double>> watchCategorySummariesByRange(DateTime start, DateTime end, String type) {
+    final query = selectOnly(records)
+      ..addColumns([records.categoryId, records.amount.sum()])
+      ..where(records.recordDate.isBetweenValues(start, end) & records.type.equals(type))
+      ..groupBy([records.categoryId]);
+
+    return query.watch().map((rows) {
+      final map = <int, double>{};
+      for (final row in rows) {
+        final categoryId = row.read(records.categoryId);
+        final sum = row.read(records.amount.sum()) ?? 0.0;
+        if (categoryId != null) {
+          map[categoryId] = sum;
+        }
+      }
+      return map;
+    });
+  }
+
+  // ── V3.1 (M4b) Budgets CRUD ─────────────────────────────
+
+  /// 按月查询预算（YYYY-MM）
+  String _monthKey(DateTime month) =>
+      '${month.year}-${month.month.toString().padLeft(2, '0')}';
+
+  Stream<Budget?> watchMonthlyBudget(DateTime month) {
+    final monthKey = _monthKey(month);
+    return (select(budgets)..where((b) => b.month.equals(monthKey)))
+        .watchSingleOrNull();
+  }
+
+  Future<Budget?> getMonthlyBudget(DateTime month) async {
+    final monthKey = _monthKey(month);
+    return (select(budgets)..where((b) => b.month.equals(monthKey)))
+        .getSingleOrNull();
+  }
+
+  /// 插入或更新某月预算（按 month 主键）
+  Future<void> upsertMonthlyBudget({
+    required DateTime month,
+    required double amount,
+    required bool enabled,
+  }) async {
+    final monthKey = _monthKey(month);
+    final existing = await getMonthlyBudget(month);
+    if (existing == null) {
+      await into(budgets).insert(BudgetsCompanion.insert(
+        month: monthKey,
+        amount: Value(amount),
+        enabled: Value(enabled),
+      ));
+    } else {
+      await (update(budgets)..where((b) => b.id.equals(existing.id))).write(
+        BudgetsCompanion(
+          amount: Value(amount),
+          enabled: Value(enabled),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+    }
+  }
+
+  // ── V3.1 (M4a) 月度结余（收入 − 支出） ─────────────────────
+
+  Stream<({double income, double expense})> watchMonthlySurplus(DateTime month) {
+    final start = DateTime(month.year, month.month, 1);
+    final end = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+    final q = selectOnly(records)
+      ..addColumns([records.type, records.amount.sum()])
+      ..where(records.recordDate.isBetweenValues(start, end))
+      ..groupBy([records.type]);
+    return q.watch().map((rows) {
+      double inc = 0, exp = 0;
+      for (final row in rows) {
+        final t = row.read(records.type);
+        final s = row.read(records.amount.sum()) ?? 0.0;
+        if (t == 'income') inc = s;
+        if (t == 'expense') exp = s;
+      }
+      return (income: inc, expense: exp);
+    });
+  }
+
+  // ── V3.1 (M3a) 最近使用分类（30 天内 Top-N） ──────────────
+
+  /// 按当前收支类型返回近 [days] 天内使用频次 Top [limit] 个分类。
+  /// SQL: GROUP BY categoryId ORDER BY COUNT DESC, MAX(recordDate) DESC
+  Stream<List<Category>> watchRecentCategoriesByType(
+    String type, {
+    int days = 30,
+    int limit = 3,
+  }) {
+    final cutoff = DateTime.now().subtract(Duration(days: days));
+    // record_date 存为 INTEGER（unix 秒），传整型而非字符串
+    final cutoffSec = cutoff.millisecondsSinceEpoch ~/ 1000;
+    final raw = customSelect(
+      '''
+      SELECT c.id AS id, c.name AS name, c.icon AS icon, c.type AS type,
+             c.color AS color, c.is_default AS is_default, c.is_hidden AS is_hidden
+      FROM categories c
+      JOIN records r ON r.category_id = c.id
+      WHERE r.record_date >= ? AND c.type = ?
+      GROUP BY c.id
+      ORDER BY COUNT(r.id) DESC, MAX(r.record_date) DESC
+      LIMIT ?
+      ''',
+      variables: [
+        Variable.withInt(cutoffSec),
+        Variable.withString(type),
+        Variable.withInt(limit),
+      ],
+      readsFrom: {categories, records},
+    );
+    return raw.watch().map((rows) {
+      return rows.map((row) => Category(
+            id: row.read<int>('id'),
+            name: row.read<String>('name'),
+            icon: row.read<String>('icon'),
+            type: row.read<String>('type'),
+            color: row.read<String>('color'),
+            isDefault: row.read<bool>('is_default'),
+            isHidden: row.read<bool>('is_hidden'),
+          )).toList();
     });
   }
 }

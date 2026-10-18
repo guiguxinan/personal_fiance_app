@@ -1,5 +1,6 @@
 import 'dart:ui' show ImageFilter;
 
+import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -9,10 +10,13 @@ import '../../providers/category_provider.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/record_provider.dart';
 import '../record/add_record_screen.dart';
+import '../settings/settings_screen.dart';
 import '../statistics/statistics_screen.dart';
-import 'widgets/monthly_summary_card.dart';
+import 'widgets/budget_card.dart';
 import 'widgets/category_summary_list.dart';
+import 'widgets/monthly_summary_card.dart';
 import 'widgets/record_list_item.dart';
+import 'widgets/surplus_card.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -25,6 +29,9 @@ class HomeScreen extends ConsumerWidget {
     final categorySummariesAsync = ref.watch(categorySummariesProvider);
     final totalSpendingAsync = ref.watch(totalSpendingProvider);
     final prevMonthTotalAsync = ref.watch(prevMonthTotalProvider);
+    // V3.1 (M4a/M4b)
+    final surplusAsync = ref.watch(monthlySurplusProvider(selectedMonth));
+    final budgetAsync = ref.watch(monthlyBudgetProvider(selectedMonth));
     // 当前收支类型下的分类（用于 Top4 chip 的 icon/name/color）
     final categories =
         ref.watch(categoriesByTypeProvider(selectedType)).valueOrNull ?? <Category>[];
@@ -34,6 +41,8 @@ class HomeScreen extends ConsumerWidget {
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(recordsByMonthProvider);
+            ref.invalidate(monthlySurplusProvider(selectedMonth));
+            ref.invalidate(monthlyBudgetProvider(selectedMonth));
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -41,7 +50,7 @@ class HomeScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 月份切换器：‹ 2026年10月 ›
+                // 月份切换器 + 设置入口（M7）
                 _buildHeader(context, ref, selectedMonth),
 
                 // 总览卡片
@@ -63,6 +72,38 @@ class HomeScreen extends ConsumerWidget {
                     isLoading: true,
                   ),
                   error: (_, __) => const MonthlySummaryCard(totalSpending: 0),
+                ),
+
+                // M4a 结余卡片
+                const SizedBox(height: 12),
+                surplusAsync.when(
+                  data: (stats) => SurplusCard(
+                    income: stats.income,
+                    expense: stats.expense,
+                    onTap: () => _navigateToStatistics(context),
+                  ),
+                  loading: () => const SizedBox(
+                    height: 80,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+
+                // M4b 预算进度条（开启且金额>0 时展示）
+                const SizedBox(height: 12),
+                budgetAsync.when(
+                  data: (budget) {
+                    if (budget == null || !budget.enabled || budget.amount <= 0) {
+                      return const SizedBox.shrink();
+                    }
+                    final expense = surplusAsync.valueOrNull?.expense ?? 0.0;
+                    return BudgetCard(
+                      budgetAmount: budget.amount,
+                      expenseAmount: expense,
+                    );
+                  },
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
                 ),
 
                 // Top4 分类概览
@@ -87,7 +128,17 @@ class HomeScreen extends ConsumerWidget {
                     child: Center(child: CircularProgressIndicator()),
                   ),
                   error: (e, _) => Center(
-                    child: Text('Error: $e'),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.error_outline, color: AppColors.textHint, size: 40),
+                        const SizedBox(height: 8),
+                        Text(
+                          '数据加载失败，请下拉刷新重试',
+                          style: TextStyle(color: AppColors.textHint),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -99,14 +150,13 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  /// 月份切换器（对齐原型 month-switcher：内嵌、圆形白底箭头、标题 15px/600）
+  /// 月份切换器 + V3.1 (M7) 设置入口
   Widget _buildHeader(BuildContext context, WidgetRef ref, DateTime selectedMonth) {
     final monthFormat = DateFormat('yyyy年MM月');
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 6, 4, 12),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _buildMonthArrow(
             ref: ref,
@@ -114,12 +164,16 @@ class HomeScreen extends ConsumerWidget {
             delta: -1,
             icon: Icons.chevron_left,
           ),
-          Text(
-            monthFormat.format(selectedMonth),
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+          Expanded(
+            child: Center(
+              child: Text(
+                monthFormat.format(selectedMonth),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
             ),
           ),
           _buildMonthArrow(
@@ -127,6 +181,16 @@ class HomeScreen extends ConsumerWidget {
             selectedMonth: selectedMonth,
             delta: 1,
             icon: Icons.chevron_right,
+          ),
+          // M7：设置入口
+          const SizedBox(width: 4),
+          IconButton(
+            key: const Key('settings-btn'),
+            icon: const Icon(Icons.settings_outlined, size: 22),
+            color: AppColors.textHint,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () => _navigateToSettings(context),
           ),
         ],
       ),
@@ -239,6 +303,7 @@ class HomeScreen extends ConsumerWidget {
                   record: record,
                   onEdit: () => _navigateToEditRecord(context, record),
                   onDelete: () => _confirmDelete(context, ref, record),
+                  onCopy: () => _navigateToPrefillRecord(context, record),
                 )),
           ],
         );
@@ -413,6 +478,15 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
+  // M3b 复记：携带 prefillRecord 进入记账页，生成新记录
+  void _navigateToPrefillRecord(BuildContext context, dynamic record) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AddRecordScreen(prefillRecord: record),
+      ),
+    );
+  }
+
   void _navigateToStatistics(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -421,22 +495,67 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
+  // M7：跳设置页
+  void _navigateToSettings(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const SettingsScreen(),
+      ),
+    );
+  }
+
+  // M2 删除撤销：物理删除 + 内存缓存 + 5s 撤销 SnackBar
   void _confirmDelete(BuildContext context, WidgetRef ref, dynamic record) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Text('确定删除？'),
-        content: const Text('删除后无法恢复'),
+        content: const Text('删除后 5 秒内可在底部"撤销"恢复'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogCtx).pop(),
             child: const Text('取消'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.of(context).pop();
+              Navigator.of(dialogCtx).pop();
               final database = await ref.read(databaseProvider.future);
+              // 1) 物理删除
               await database.deleteRecord(record.id);
+              // 2) 缓存被删记录（M2 物理删除+内存缓存方案）
+              ref.read(lastDeletedRecordProvider.notifier).state =
+                  record as Record;
+              // 3) 立即关闭任何已存在的撤销 SnackBar
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              // 4) 弹 5s 撤销 SnackBar
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('已删除'),
+                  duration: const Duration(seconds: 5),
+                  action: SnackBarAction(
+                    label: '撤销',
+                    onPressed: () async {
+                      final cached = ref.read(lastDeletedRecordProvider);
+                      if (cached == null) return;
+                      // 重新插入（auto-increment 新 id，保留原字段）
+                      await database.insertRecord(RecordsCompanion.insert(
+                        amount: cached.amount,
+                        categoryId: cached.categoryId,
+                        recordDate: cached.recordDate,
+                        note: drift.Value(cached.note),
+                        type: drift.Value(cached.type),
+                      ));
+                      ref.read(lastDeletedRecordProvider.notifier).state = null;
+                    },
+                  ),
+                ),
+              );
+              // 5) 5s 后清空缓存（仅当未撤销时）
+              Future.delayed(const Duration(seconds: 5), () {
+                if (ref.read(lastDeletedRecordProvider) == record) {
+                  ref.read(lastDeletedRecordProvider.notifier).state = null;
+                }
+              });
             },
             child: Text(
               '删除',

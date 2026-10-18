@@ -107,8 +107,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     return GestureDetector(
       onTap: () {
         ref.read(statisticsGranularityProvider.notifier).state = value;
-        // Reset date to current when changing granularity
-        ref.read(statisticsSelectedDateProvider.notifier).state = DateTime.now();
+        // M3 修复：切粒度不再重置日期，保留用户已选周期以支持"年→月→日"层层下钻
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -146,6 +145,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     void Function(dynamic) onSelected;
 
     final now = DateTime.now();
+    // M3 修复：日期条基于 selectedDate 的年/月生成，而非锁死 now
+    final baseYear = selectedDate.year;
+    final baseMonth = selectedDate.month;
 
     switch (granularity) {
       case TimeGranularity.year:
@@ -154,27 +156,27 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         isSelectedBuilder = (item, date) => item == date.year;
         onSelected = (item) {
           ref.read(statisticsSelectedDateProvider.notifier).state =
-              DateTime(item as int, now.month, now.day);
+              DateTime(item as int, baseMonth, 1);
         };
         break;
       case TimeGranularity.month:
         items = List.generate(12, (i) => i + 1);
         labelBuilder = (item) => '$item月';
-        isSelectedBuilder = (item, date) => item == date.month && date.year == now.year;
+        isSelectedBuilder = (item, date) => item == date.month && date.year == baseYear;
         onSelected = (item) {
           ref.read(statisticsSelectedDateProvider.notifier).state =
-              DateTime(now.year, item as int, 1);
+              DateTime(baseYear, item as int, 1);
         };
         break;
       case TimeGranularity.day:
-        final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+        final daysInMonth = DateTime(baseYear, baseMonth + 1, 0).day;
         items = List.generate(daysInMonth, (i) => i + 1);
         labelBuilder = (item) => '$item日';
         isSelectedBuilder = (item, date) => item == date.day &&
-            date.month == now.month && date.year == now.year;
+            date.month == baseMonth && date.year == baseYear;
         onSelected = (item) {
           ref.read(statisticsSelectedDateProvider.notifier).state =
-              DateTime(now.year, now.month, item as int);
+              DateTime(baseYear, baseMonth, item as int);
         };
         break;
     }
@@ -301,26 +303,30 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     final selectedDate = ref.watch(statisticsSelectedDateProvider);
     final granularity = ref.watch(statisticsGranularityProvider);
 
-    // Calculate start date based on granularity
+    // S1 修复：按粒度构造起止日期范围
     DateTime startDate;
+    DateTime endDate;
 
     switch (granularity) {
       case TimeGranularity.year:
         startDate = DateTime(selectedDate.year, 1, 1);
+        endDate = DateTime(selectedDate.year, 12, 31, 23, 59, 59);
         break;
       case TimeGranularity.month:
         startDate = DateTime(selectedDate.year, selectedDate.month, 1);
+        endDate = DateTime(selectedDate.year, selectedDate.month + 1, 0, 23, 59, 59);
         break;
       case TimeGranularity.day:
         startDate = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+        endDate = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, 23, 59, 59);
         break;
     }
 
-    // Get type-specific providers
+    // Get type-specific providers (S1 修复：用 range provider 替代 ByMonthAndType)
     final typeStr = recordType == RecordType.expense ? 'expense' : 'income';
-    final params = (month: startDate, type: typeStr);
-    final summariesAsync = ref.watch(categorySummariesByTypeProvider(params));
-    final totalAsync = ref.watch(totalByTypeProvider(params));
+    final params = (start: startDate, end: endDate, type: typeStr);
+    final summariesAsync = ref.watch(categorySummariesByRangeProvider(params));
+    final totalAsync = ref.watch(totalByRangeProvider(params));
     // 当前 type 的分类列表（用于环形图色板 / 分类明细查 icon/color）
     final categories = ref.watch(categoriesByTypeProvider(typeStr)).valueOrNull ?? <Category>[];
 
@@ -358,7 +364,19 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             );
           },
           loading: () => const SizedBox(height: 300, child: Center(child: CircularProgressIndicator())),
-          error: (e, _) => Center(child: Text('Error: $e')),
+          error: (e, _) => Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, color: AppColors.textHint, size: 40),
+                const SizedBox(height: 8),
+                Text(
+                  '数据加载失败，请下拉刷新重试',
+                  style: TextStyle(color: AppColors.textHint),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -495,4 +513,31 @@ final totalByTypeProvider = StreamProvider.family<double, DateTimeTypeParams>((r
   );
 
   yield* db.watchTotalByMonthAndType(params.month, params.type);
+});
+
+// S1 修复：按起止日期范围聚合（年/月/日粒度共用），替代按月硬编码
+typedef DateTimeTypeRangeParams = ({DateTime start, DateTime end, String type});
+
+final categorySummariesByRangeProvider = StreamProvider.family<Map<int, double>, DateTimeTypeRangeParams>((ref, params) async* {
+  final databaseAsync = ref.watch(databaseProvider);
+
+  final db = await databaseAsync.when(
+    data: (db) => db,
+    loading: () => throw Exception('Database loading'),
+    error: (e, _) => throw e,
+  );
+
+  yield* db.watchCategorySummariesByRange(params.start, params.end, params.type);
+});
+
+final totalByRangeProvider = StreamProvider.family<double, DateTimeTypeRangeParams>((ref, params) async* {
+  final databaseAsync = ref.watch(databaseProvider);
+
+  final db = await databaseAsync.when(
+    data: (db) => db,
+    loading: () => throw Exception('Database loading'),
+    error: (e, _) => throw e,
+  );
+
+  yield* db.watchTotalByRange(params.start, params.end, params.type);
 });
