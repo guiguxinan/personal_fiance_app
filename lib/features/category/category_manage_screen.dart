@@ -41,13 +41,31 @@ class CategoryManageScreen extends ConsumerWidget {
       body: categoriesAsync.when(
         data: (categories) => _buildCategoryList(context, ref, categories),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
+        error: (_, __) => Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
-            child: Text(
-              '加载分类失败：$e',
-              style: TextStyle(color: AppColors.expense),
-              textAlign: TextAlign.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('😕', style: TextStyle(fontSize: 40)),
+                const SizedBox(height: 12),
+                Text('分类加载失败', style: AppTypography.titleMedium),
+                const SizedBox(height: 6),
+                Text(
+                  '请稍后重试',
+                  style: AppTypography.bodyMedium
+                      .copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => ref.invalidate(categoriesStreamProvider),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('重试'),
+                ),
+              ],
             ),
           ),
         ),

@@ -417,7 +417,7 @@ V3.3（B2/B3/B4）实施并模拟器验证后，与 V3.1 原型逐项复核发�
 
 **测试同步**：budget_card / surplus_card / add_record_recent / record_flow / settings_screen 5 个测试文件断言更新（新文案/新控件），46 passed + 4 skip 全绿。
 
-**遗留说明**：`category_manage_screen.dart` 错误态原始文案 `Error: ...`（O2 残留，用户未要求，未列入本次修复）；原型无对应设计的分类管理页内部结构维持现状。
+**遗留说明**：~~`category_manage_screen.dart` 错误态原始文案 `Error: ...`（O2 残留，用户未要求，未列入本次修复）；原型无对应设计的分类管理页内部结构维持现状~~ → **O2 已修复（2026-10-18）**：分类管理页错误态改为友好提示（😕 +「分类加载失败 / 请稍后重试」+ 粉色「重试」按钮 `ref.invalidate(categoriesStreamProvider)`），不再暴露原始异常；analyze 0 issues / test 46+4 全绿 / release APK 已重建。原型无对应设计的分类管理页内部结构维持现状。
 
 ---
 
