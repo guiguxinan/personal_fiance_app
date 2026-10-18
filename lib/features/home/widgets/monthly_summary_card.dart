@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/utils/currency_formatter.dart';
-import '../../../../providers/record_provider.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../providers/record_provider.dart';
 
 /// 首页顶部总览卡片（严格对齐原型「轻记 V2」）：
 /// 胶囊切换（支出/收入）→ 标签「本月支出（元）」→ 大金额 ¥xxx.xx → 环比胶囊「↑ 较上月 +x.x%」

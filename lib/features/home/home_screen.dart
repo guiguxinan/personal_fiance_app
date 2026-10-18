@@ -151,51 +151,74 @@ class HomeScreen extends ConsumerWidget {
   }
 
   /// 月份切换器 + V3.1 (M7) 设置入口
+  /// 对齐原型（2026-10-18 按用户原型图修正）：
+  /// - 26px 白色圆形箭头按钮（icon 居中、色 #A89AA0），‹ 时间 › 紧凑成组靠左
+  /// - 18px/600 月份标题
+  /// - ⚙️ 设置入口：淡紫色圆底 + 白色描边圆底渲染，位于行尾
   Widget _buildHeader(BuildContext context, WidgetRef ref, DateTime selectedMonth) {
     final monthFormat = DateFormat('yyyy年MM月');
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 6, 4, 12),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
       child: Row(
         children: [
           _buildMonthArrow(
             ref: ref,
             selectedMonth: selectedMonth,
             delta: -1,
-            // I2：月份箭头对齐原型 ‹ › 字符
             symbol: '‹',
           ),
-          Expanded(
-            child: Center(
-              child: Text(
-                monthFormat.format(selectedMonth),
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
+          const SizedBox(width: 4),
+          Text(
+            monthFormat.format(selectedMonth),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
             ),
           ),
+          const SizedBox(width: 4),
           _buildMonthArrow(
             ref: ref,
             selectedMonth: selectedMonth,
             delta: 1,
             symbol: '›',
           ),
-          // M7：设置入口（I2：⚙️ emoji 对齐原型）
-          const SizedBox(width: 4),
-          IconButton(
-            key: const Key('settings-btn'),
-            icon: const Text(
-              '⚙️',
-              style: TextStyle(fontSize: 18),
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            onPressed: () => _navigateToSettings(context),
-          ),
+          const Spacer(),
+          // M7：设置入口（对齐原型：淡紫圆底 + 白色描边圆底渲染）
+          _buildSettingsButton(context),
         ],
+      ),
+    );
+  }
+
+  /// ⚙️ 设置按钮：淡紫色圆底 + 白色描边圆（对齐原型图）
+  Widget _buildSettingsButton(BuildContext context) {
+    return GestureDetector(
+      key: const Key('settings-btn'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _navigateToSettings(context),
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE9E1F6), // 淡紫圆底
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2), // 白色描边圆
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 4,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Text(
+            '⚙️',
+            style: TextStyle(fontSize: 16),
+          ),
+        ),
       ),
     );
   }
@@ -212,20 +235,19 @@ class HomeScreen extends ConsumerWidget {
             DateTime(selectedMonth.year, selectedMonth.month + delta, 1);
       },
       child: Container(
-        width: 30,
-        height: 30,
+        width: 26,
+        height: 26,
         decoration: const BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
         ),
-        child: Center(
-          child: Text(
-            symbol,
-            style: const TextStyle(
-              fontSize: 20,
-              color: AppColors.textHint,
-              height: 1.0,
-            ),
+        alignment: Alignment.center,
+        child: Text(
+          symbol,
+          style: const TextStyle(
+            fontSize: 18,
+            color: AppColors.textHint,
+            height: 1.0,
           ),
         ),
       ),
@@ -331,70 +353,52 @@ class HomeScreen extends ConsumerWidget {
         date.day == yesterday.day;
   }
 
-  /// 底部导航（对齐原型 tabbar：毛玻璃白底、首页 + 中间 FAB + 统计）
-  /// 容器高 110：上 30px 为 FAB 上凸区（保持可命中），下 80px 为毛玻璃条
+  /// 底部导航（对齐原型：毛玻璃白底、首页 + 中间 FAB + 统计）
+  /// FAB 完整嵌入导航栏内，与首页/统计 tab 垂直中心对齐（2026-10-18 按用户原型图修正）
   Widget _buildBottomNavBar(BuildContext context) {
     return SizedBox(
-      height: 110,
-      child: Stack(
-        children: [
-          // 毛玻璃底条（含左右两个 tab）
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 80,
-            child: Container(
-              decoration: const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: AppColors.line),
-                ),
-              ),
-              child: ClipRect(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: Container(
-                    color: Colors.white.withValues(alpha: 0.98),
-                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildTabItem(
-                            context: context,
-                            // I4：底部导航图标对齐原型 emoji（🏠 首页 / 📊 统计）
-                            emoji: '🏠',
-                            label: '首页',
-                            active: true,
-                            onTap: () {},
-                          ),
-                        ),
-                        const SizedBox(width: 56), // FAB 占位
-                        Expanded(
-                          child: _buildTabItem(
-                            context: context,
-                            emoji: '📊',
-                            label: '统计',
-                            active: false,
-                            onTap: () => _navigateToStatistics(context),
-                          ),
-                        ),
-                      ],
-                    ),
+      height: 80, // 必须显式高度：bottomNavigationBar 约束为全屏宽松高度，无固定高度会被拉伸
+      child: Container(
+      decoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(color: AppColors.line),
+        ),
+      ),
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            color: Colors.white.withValues(alpha: 0.98),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: _buildTabItem(
+                    context: context,
+                    // I4：底部导航图标对齐原型 emoji（🏠 首页 / 📊 统计）
+                    emoji: '🏠',
+                    label: '首页',
+                    active: true,
+                    onTap: () {},
                   ),
                 ),
-              ),
+                // 中间 FAB：完整嵌入导航栏，与两侧 tab 同栏同中心线（对齐原型）
+                _buildFab(context),
+                Expanded(
+                  child: _buildTabItem(
+                    context: context,
+                    emoji: '📊',
+                    label: '统计',
+                    active: false,
+                    onTap: () => _navigateToStatistics(context),
+                  ),
+                ),
+              ],
             ),
           ),
-          // 中间 FAB：上凸 30px（对齐原型 fab）
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: _buildFab(context),
-            ),
-          ),
-        ],
+        ),
+      ),
       ),
     );
   }
@@ -413,25 +417,16 @@ class HomeScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 原型 tab-item.active::before 顶部小横条
-          Container(
-            width: 20,
-            height: 3,
-            decoration: BoxDecoration(
-              color: active ? AppColors.primary : Colors.transparent,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 6),
+          // 对齐原型 V3.1：去掉顶部 3px 小横条（原型无此元素）
           Text(
             emoji,
-            style: TextStyle(fontSize: 18, color: color),
+            style: TextStyle(fontSize: 22, color: color),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: active ? FontWeight.w600 : FontWeight.w400,
               color: color,
             ),
@@ -441,26 +436,22 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  /// 中间 FAB（对齐原型 fab：56px 圆形粉色渐变、+ 号）
+  /// 中间 FAB（对齐原型 V3.1 高保真：60×60 纯粉色 #E88BA3 圆球，+ 号 32px，上半圆嵌入 nav）
   Widget _buildFab(BuildContext context) {
     return GestureDetector(
       key: const Key('fab'),
       onTap: () => _navigateToAddRecord(context),
       child: Container(
-        width: 56,
-        height: 56,
+        width: 60,
+        height: 60,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.expenseGradientStart, AppColors.primary],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: AppColors.primary,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.5),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+              color: AppColors.primary.withValues(alpha: 0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -469,7 +460,7 @@ class HomeScreen extends ConsumerWidget {
             '+',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 30,
+              fontSize: 32,
               height: 1.0,
               fontWeight: FontWeight.w300,
             ),

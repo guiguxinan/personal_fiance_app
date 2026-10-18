@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/utils/currency_formatter.dart';
-import '../../../../data/database/app_database.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../data/database/app_database.dart';
 
 /// 统计页环形图（donut）。
 /// 颜色取自 [Category.color]（HEX 字符串），由父组件按当前 type 传入分类列表。

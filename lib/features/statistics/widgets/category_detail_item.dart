@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_typography.dart';
-import '../../../../core/utils/currency_formatter.dart';
-import '../../../../data/database/app_database.dart';
-import '../../../../providers/database_provider.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_typography.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../data/database/app_database.dart';
+import '../../../providers/database_provider.dart';
 
 /// V3.3 (B3)：统计页分类明细行 → 点击展开近期记录子明细（日期 + 金额）。
 /// 颜色取自 [Category.color]（HEX）；展开内容为「按范围+类型+分类」倒序取最近 5 条。

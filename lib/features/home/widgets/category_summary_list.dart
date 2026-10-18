@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../data/database/app_database.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../data/database/app_database.dart';
 
 /// 首页分类概览（严格对齐原型「轻记 V2」）：
 /// 无外层容器，直接 4 列白色小 chip：图标 + 名称 + 纯数字金额（无符号、整数）
@@ -92,9 +92,9 @@ class CategorySummaryList extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 1),
+          // 原型：金额前带 ¥ 符号（对齐 V3.1 原型高保真）
           Text(
-            // 原型为纯数字整数（如 129），无 ¥、无符号
-            amount.round().toString(),
+            '¥${amount.round()}',
             style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,

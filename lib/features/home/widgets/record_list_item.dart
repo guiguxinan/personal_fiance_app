@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/utils/currency_formatter.dart';
-import '../../../../data/database/app_database.dart';
-import '../../../../providers/category_provider.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../data/database/app_database.dart';
+import '../../../providers/category_provider.dart';
 
 /// 首页记录条目（V3.1）：
 /// - V3.0：白卡圆角 14、图标块 38×38 圆角 11（收入绿底）、名称 14/备注 11、金额 14 粗体（支出深色、收入绿色）
 /// - V3.1 (M3b)：长按弹出底部菜单（复记一笔 / 编辑 / 删除）
 /// - V3.1 (M4 残留修复)：单击触发 onEdit
-/// - V3.1 P0 优化：左滑露出【编辑 + 删除】双按钮
-class RecordListItem extends ConsumerWidget {
+/// - V3.3 P0 优化：左滑只露出 46px 宽的【编辑 + 删除】两个按钮（不撑满容器），点击即生效不弹中间菜单
+class RecordListItem extends ConsumerStatefulWidget {
   final Record record;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -25,220 +25,224 @@ class RecordListItem extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RecordListItem> createState() => _RecordListItemState();
+}
+
+class _RecordListItemState extends ConsumerState<RecordListItem> {
+  bool _swiped = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final record = widget.record;
     final category = ref.watch(categoryByIdProvider(record.categoryId));
     final isExpense = record.type == 'expense';
 
-    return Dismissible(
-      key: Key('record_${record.id}'),
-      // 仅左滑（endToStart = 从右向左滑）
-      direction: DismissDirection.endToStart,
-      // P0 优化：左滑露出【编辑 + 删除】两个操作按钮（而非只露删除）
-      background: const SizedBox.shrink(),
-      secondaryBackground: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0x0A1F2A27),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
           children: [
-            // 编辑按钮（橙色，左侧）
-            Expanded(
+            // 主内容（向左偏移露出右侧按钮区）
+            Transform.translate(
+              offset: _swiped ? const Offset(-92, 0) : Offset.zero,
               child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () {
-                  // 触发编辑：绕过 Dismissible 关闭，直接回调 onEdit
-                  // 实际需要在 confirmDismiss 中处理；这里只作为 UI 占位
+                  if (_swiped) {
+                    setState(() => _swiped = false);
+                    return;
+                  }
+                  widget.onEdit();
                 },
+                onLongPress: _swiped
+                    ? null
+                    : () => _showActions(
+                        context,
+                        widget.onEdit,
+                        widget.onDelete,
+                        widget.onCopy,
+                      ),
                 child: Container(
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8A56A),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(14),
-                      bottomLeft: Radius.circular(14),
-                    ),
-                  ),
-                  // I3：左滑按钮图标对齐原型 emoji（✏️ 编辑 / 🗑 删除）
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  color: AppColors.surface,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Row(
                     children: [
-                      Text('✏️', style: TextStyle(fontSize: 15)),
-                      SizedBox(height: 2),
-                      Text('编辑',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600)),
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: isExpense
+                              ? AppColors.primaryLight
+                              : AppColors.incomeLight,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Center(
+                          child: Text(
+                            category?.icon ?? '📌',
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              category?.name ?? '未知',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (record.note != null && record.note!.isNotEmpty)
+                              Text(
+                                record.note!,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textHint,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        isExpense
+                            ? '-${CurrencyFormatter.format(record.amount)}'
+                            : '+${CurrencyFormatter.format(record.amount)}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          color: isExpense
+                              ? AppColors.textPrimary
+                              : AppColors.income,
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
-            // 删除按钮（红色，右侧）
-            Expanded(
-              child: Container(
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: AppColors.expense,
-                  borderRadius: BorderRadius.only(
-                    topRight: Radius.circular(14),
-                    bottomRight: Radius.circular(14),
-                  ),
-                ),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+            // 右侧 46px 宽操作按钮：编辑 + 删除（不撑满容器，原型 V3.1 act-btn 宽 46px）
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 150),
+                opacity: _swiped ? 1.0 : 0.0,
+                child: Row(
                   children: [
-                    Text('🗑', style: TextStyle(fontSize: 15)),
-                    SizedBox(height: 2),
-                    Text('删除',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600)),
+                    _buildActionButton(
+                      emoji: '✏️',
+                      label: '编辑',
+                      color: const Color(0xFFE8A857),
+                      onTap: () {
+                        setState(() => _swiped = false);
+                        widget.onEdit();
+                      },
+                    ),
+                    _buildActionButton(
+                      emoji: '🗑',
+                      label: '删除',
+                      color: AppColors.expense,
+                      onTap: () {
+                        setState(() => _swiped = false);
+                        widget.onDelete();
+                      },
+                    ),
                   ],
                 ),
+              ),
+            ),
+            // 手势识别层：左滑露按钮 / 右滑收回（避免与主内容点击冲突）
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onHorizontalDragEnd: (details) {
+                  final v = details.primaryVelocity ?? 0;
+                  if (v < -150) {
+                    setState(() => _swiped = true);
+                  } else if (v > 150) {
+                    setState(() => _swiped = false);
+                  }
+                },
+                onTap: () {
+                  if (_swiped) {
+                    setState(() => _swiped = false);
+                  } else {
+                    widget.onEdit();
+                  }
+                },
+                onLongPress: () {
+                  if (!_swiped) {
+                    _showActions(
+                      context,
+                      widget.onEdit,
+                      widget.onDelete,
+                      widget.onCopy,
+                    );
+                  }
+                },
               ),
             ),
           ],
         ),
       ),
-      confirmDismiss: (direction) async {
-        // 弹中央菜单让用户选择"编辑/删除"（N12：对齐原型中央弹窗样式）
-        final action = await showDialog<String>(
-          context: context,
-          builder: (dialogCtx) => Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 96),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _menuAction(
-                    dialogCtx,
-                    '✏️',
-                    '编辑',
-                    AppColors.textPrimary,
-                    () => Navigator.pop(dialogCtx, 'edit'),
-                    key: const Key('swipe-action-edit'),
-                  ),
-                  _menuAction(
-                    dialogCtx,
-                    '🗑',
-                    '删除',
-                    AppColors.expense,
-                    () => Navigator.pop(dialogCtx, 'delete'),
-                    key: const Key('swipe-action-delete'),
-                  ),
-                ],
+    );
+  }
+
+  /// 操作按钮：宽 46px、高撑满容器，emoji + 文字竖排
+  Widget _buildActionButton({
+    required String emoji,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 46,
+        color: color,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 15)),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-        );
-        if (action == 'edit') {
-          // 不关闭 Dismissible（return false 阻止 dismiss），但触发编辑
-          // 用 Future.microtask 推迟到 confirmDismiss 返回后
-          Future.microtask(onEdit);
-          return false;
-        }
-        if (action == 'delete') {
-          // 用户选删除 → 真删除
-          return true;
-        }
-        // 取消（点空白或返回）
-        return false;
-      },
-      onDismissed: (direction) {
-        // 仅在用户确认删除时触发
-        onDelete();
-      },
-      child: GestureDetector(
-        // M4 残留修复 + M3b：单击编辑、长按弹菜单
-        behavior: HitTestBehavior.opaque,
-        onTap: onEdit,
-        onLongPress: () => _showActions(context, onEdit, onDelete, onCopy),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0x0A1F2A27),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: isExpense ? AppColors.primaryLight : AppColors.incomeLight,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Center(
-                  child: Text(
-                    category?.icon ?? '📌',
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      category?.name ?? '未知',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (record.note != null && record.note!.isNotEmpty)
-                      Text(
-                        record.note!,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textHint,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                  ],
-                ),
-              ),
-              Text(
-                isExpense
-                    ? '-${CurrencyFormatter.format(record.amount)}'
-                    : '+${CurrencyFormatter.format(record.amount)}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                  // 原型：支出为深色主文字，收入为绿色
-                  color: isExpense ? AppColors.textPrimary : AppColors.income,
-                ),
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
 
-  // V3.1 (M3b) + N12：长按弹中央菜单（复记/编辑/删除），对齐原型 longpress-menu 中央 200px 弹窗
+  // V3.1 (M3b) + N12：长按弹中央菜单（复记/编辑/删除）
   Future<void> _showActions(
     BuildContext context,
     VoidCallback onEdit,
@@ -300,7 +304,7 @@ class RecordListItem extends ConsumerWidget {
     );
   }
 
-  /// 中央弹窗菜单项（emoji 图标 + 文案，对齐原型）
+  /// 中央弹窗菜单项
   Widget _menuAction(
     BuildContext context,
     String emoji,
@@ -329,4 +333,3 @@ class RecordListItem extends ConsumerWidget {
     );
   }
 }
-
