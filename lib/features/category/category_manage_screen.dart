@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
@@ -17,10 +18,6 @@ class CategoryManageScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // V3.1 P0 真机 bug 修复：原 FutureBuilder + _getCategories() 是一次性 getAllCategories()，
-    // 新增/编辑/删除后数据库 stream 变化但页面不刷新。
-    // 改为 watch categoriesStreamProvider（已经是 Stream<List<Category>>），
-    // 数据库 stream emit 时列表自动 rebuild —— 实现「实时更新」。
     final categoriesAsync = ref.watch(categoriesStreamProvider);
 
     return Scaffold(
@@ -83,7 +80,6 @@ class CategoryManageScreen extends ConsumerWidget {
   Widget _buildCategoryItem(BuildContext context, WidgetRef ref, Category category) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      // Material 包装：避免 ListTile 在 DecoratedBox 内 ink splash 不可见 + pumpAndSettle 卡住
       child: Material(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
@@ -97,12 +93,15 @@ class CategoryManageScreen extends ConsumerWidget {
               color: category.isDefault ? AppColors.textHint : AppColors.primary,
             ),
           ),
-          // V3.3 (B4)：上移/下移排序（同类型内）+ 自定义分类菜单
+          // V3.3 优化 (O3)：自定义分类行加 隐藏 Switch（对齐 PRD §10.6.4）
+          // 排序列：上移 / 下移 / 隐藏 Switch / 更多菜单
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildSortButton(context, ref, category, up: true),
               _buildSortButton(context, ref, category, up: false),
+              if (!category.isDefault)
+                _buildHiddenSwitch(context, ref, category),
               if (!category.isDefault)
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert),
@@ -148,8 +147,32 @@ class CategoryManageScreen extends ConsumerWidget {
         } else {
           await database.moveCategoryDown(category.id);
         }
-        // stream emit → 列表自动重建（无需手动刷新）
+        // stream emit → 列表自动重建
       },
+    );
+  }
+
+  /// V3.3 优化 (O3)：自定义分类行右侧加「隐藏」Switch（PRD §10.6.4）
+  /// 默认分类不可隐藏
+  Widget _buildHiddenSwitch(
+    BuildContext context,
+    WidgetRef ref,
+    Category category,
+  ) {
+    return Tooltip(
+      message: category.isHidden ? '已隐藏（仍可被「最近使用」选中）' : '隐藏后不出现在常规分类区与统计图例',
+      child: SizedBox(
+        width: 44,
+        height: 28,
+        child: Switch(
+          value: category.isHidden,
+          onChanged: (v) async {
+            final database = await ref.read(databaseProvider.future);
+            await database.setCategoryHidden(category.id, v);
+            // stream emit → 列表自动 rebuild（隐藏状态更新）
+          },
+        ),
+      ),
     );
   }
 
@@ -307,7 +330,6 @@ class CategoryManageScreen extends ConsumerWidget {
                 );
                 if (dialogCtx.mounted) {
                   Navigator.pop(dialogCtx);
-                  // stream emit → 列表自动重建（无需 markNeedsBuild）
                 }
               },
               child: const Text('添加'),
@@ -390,7 +412,6 @@ class CategoryManageScreen extends ConsumerWidget {
                 );
                 if (dialogCtx.mounted) {
                   Navigator.pop(dialogCtx);
-                  // stream emit → 列表自动重建
                 }
               },
               child: const Text('保存'),
@@ -401,12 +422,37 @@ class CategoryManageScreen extends ConsumerWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context, WidgetRef ref, Category category) {
+  /// V3.3 优化 (O4)：删除含记录的自定义分类时，弹二次确认「记录归入『其他』」
+  /// PRD §10.6.6：默认分类不可删除；自定义分类删除 → 关联记录归入「其他」并二次确认
+  void _confirmDelete(BuildContext context, WidgetRef ref, Category category) async {
+    final database = await ref.read(databaseProvider.future);
+    // 检查该分类下是否有记录
+    final allRecords = await database.getAllRecords();
+    final hasRecords = allRecords.any((r) => r.categoryId == category.id);
+
+    if (!hasRecords) {
+      _showDeleteDialog(context, ref, category, migrateToOther: false);
+    } else {
+      // 含记录 → 弹二次确认，提示"将归入『其他』"
+      _showDeleteDialog(context, ref, category, migrateToOther: true);
+    }
+  }
+
+  void _showDeleteDialog(
+    BuildContext context,
+    WidgetRef ref,
+    Category category, {
+    required bool migrateToOther,
+  }) {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
         title: const Text('确定删除？'),
-        content: Text('删除分类「${category.name}」后，相关记账记录将保留但无法选择该分类。'),
+        content: Text(
+          migrateToOther
+              ? '删除分类「${category.name}」后，其下所有记账记录将归入「其他」，分类移除。'
+              : '删除分类「${category.name}」？',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
@@ -414,20 +460,39 @@ class CategoryManageScreen extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () async {
+              Navigator.pop(dialogCtx);
               try {
                 final database = await ref.read(databaseProvider.future);
-                await database.deleteCategory(category.id);
-                if (dialogCtx.mounted) {
-                  Navigator.pop(dialogCtx);
-                  // stream emit → 列表自动重建
+                if (migrateToOther) {
+                  // 找到同类型的「其他」分类
+                  final otherCategory = (await database.getAllCategories())
+                      .firstWhere(
+                        (c) => c.name == '其他' && c.type == category.type,
+                        orElse: () => category, // 兜底：找不到就用原分类（应该不会发生）
+                      );
+                  // 把该分类下的所有记录迁移到「其他」
+                  final recordsToMigrate = (await database.getAllRecords())
+                      .where((r) => r.categoryId == category.id)
+                      .toList();
+                  for (final r in recordsToMigrate) {
+                    await database.updateRecord(RecordsCompanion(
+                      id: drift.Value(r.id),
+                      amount: drift.Value(r.amount),
+                      categoryId: drift.Value(otherCategory.id),
+                      recordDate: drift.Value(r.recordDate),
+                      note: drift.Value(r.note),
+                      type: drift.Value(r.type),
+                      createdAt: drift.Value(r.createdAt),
+                      updatedAt: drift.Value(DateTime.now()),
+                    ));
+                  }
                 }
+                await database.deleteCategory(category.id);
               } catch (e) {
-                // M2 修复：外键约束（分类有历史记录）异常 → 友好 Toast 提示
                 if (context.mounted) {
-                  Navigator.pop(dialogCtx);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('该分类已有 ${category.name} 的记账记录，请先迁移或删除记录'),
+                      content: Text('删除失败：$e'),
                       backgroundColor: AppColors.expense,
                     ),
                   );

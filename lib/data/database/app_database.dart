@@ -213,6 +213,13 @@ class AppDatabase extends _$AppDatabase {
   Future<int> deleteCategory(int id) =>
       (delete(categories)..where((c) => c.id.equals(id))).go();
 
+  /// V3.3 优化 (O3)：设置分类隐藏状态（PRD §10.6.4）
+  Future<void> setCategoryHidden(int id, bool hidden) async {
+    await (update(categories)..where((c) => c.id.equals(id))).write(
+      CategoriesCompanion(isHidden: Value(hidden)),
+    );
+  }
+
   // ── V3.3 (B4) 分类排序：与同类型相邻分类交换 sortOrder ──────
 
   /// 上移：与该分类同类型的上一个（sortOrder 更小）交换
@@ -464,6 +471,9 @@ class AppDatabase extends _$AppDatabase {
     return (select(budgets)..where((b) => b.month.equals(monthKey)))
         .watchSingleOrNull();
   }
+
+  /// V3.3 (O1)：一次性查询全量预算（导出 JSON 备份用）
+  Future<List<Budget>> getAllBudgets() => select(budgets).get();
 
   Future<Budget?> getMonthlyBudget(DateTime month) async {
     final monthKey = _monthKey(month);

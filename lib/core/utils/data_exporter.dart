@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../data/database/app_database.dart';
 
 /// V3.1 (M1)：导出 CSV / JSON 备份
+/// V3.3 优化 (O1)：JSON 备份新增 Budgets 导出（对齐 PRD §10.1.3 "包含...预算设置"）
 class DataExporter {
   final AppDatabase database;
 
@@ -49,14 +50,17 @@ class DataExporter {
     return file;
   }
 
-  /// M1b：导出 JSON 完整备份（记录 + 分类）。
-  /// V3.1：version=2，含 type/color/isHidden；suffix 用于文件名后缀。
+  /// M1b：导出 JSON 完整备份（记录 + 分类 + 预算）。
+  /// V3.3 (O1)：version=3，新增 Budgets 导出（对齐 PRD §10.1.3）。
+  /// suffix 用于文件名后缀（如"备份"/"恢复前备份"）。
   Future<File> exportToJson({String suffix = '备份'}) async {
     final categories = await database.getAllCategories();
     final records = await database.getAllRecords();
+    // V3.3 (O1)：导出全量预算（按月存储）
+    final budgets = await database.getAllBudgets();
 
     final exportData = {
-      'version': 2,
+      'version': 3,
       'exportDate': DateTime.now().toIso8601String(),
       'categories': categories.map((c) => {
             'id': c.id,
@@ -66,6 +70,7 @@ class DataExporter {
             'type': c.type,
             'color': c.color,
             'isHidden': c.isHidden,
+            'sortOrder': c.sortOrder,
           }).toList(),
       'records': records.map((r) => {
             'id': r.id,
@@ -76,6 +81,13 @@ class DataExporter {
             'createdAt': r.createdAt.toIso8601String(),
             'updatedAt': r.updatedAt.toIso8601String(),
             'type': r.type,
+          }).toList(),
+      'budgets': budgets.map((b) => {
+            'month': b.month,
+            'amount': b.amount,
+            'enabled': b.enabled,
+            'createdAt': b.createdAt.toIso8601String(),
+            'updatedAt': b.updatedAt.toIso8601String(),
           }).toList(),
     };
 
