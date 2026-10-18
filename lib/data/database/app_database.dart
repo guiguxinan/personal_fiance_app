@@ -16,6 +16,8 @@ class Categories extends Table {
   BoolColumn get isDefault => boolean().withDefault(const Constant(true))();
   // V3.1 (M1/M6 配合)：隐藏分类不出现在常规分类区与统计图例，但可被「最近使用」快捷记账选中
   BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
+  // V3.3 (B4)：分类排序（同类型内升序展示；新增时取同类型 max+1）
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
 }
 
 // Records table
@@ -45,7 +47,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -74,8 +76,23 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(categories, categories.isHidden);
           await m.createTable(budgets);
         }
+        // V3.3 (B4)：新增 Category.sortOrder 列，并按当前 id 顺序赋值
+        if (from < 4) {
+          await m.addColumn(categories, categories.sortOrder);
+          await _assignDefaultSortOrder();
+        }
       },
     );
+  }
+
+  /// V3.3 (B4)：迁移时按 id 顺序给现有分类赋 sortOrder（0,1,2,...）
+  Future<void> _assignDefaultSortOrder() async {
+    final all = await getAllCategories();
+    for (var i = 0; i < all.length; i++) {
+      await (update(categories)..where((c) => c.id.equals(all[i].id))).write(
+        CategoriesCompanion(sortOrder: Value(i)),
+      );
+    }
   }
 
   Future<void> _migrateExistingCategories() async {
@@ -105,21 +122,21 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> _insertDefaultCategories() async {
     final defaultCategories = [
-      // Expense categories
-      CategoriesCompanion.insert(name: '餐饮', icon: '🍜', type: const Value('expense'), color: const Value('#E88BA3')),
-      CategoriesCompanion.insert(name: '交通', icon: '🚗', type: const Value('expense'), color: const Value('#E8C4A0')),
-      CategoriesCompanion.insert(name: '购物', icon: '🛒', type: const Value('expense'), color: const Value('#F2B8C8')),
-      CategoriesCompanion.insert(name: '娱乐', icon: '🎮', type: const Value('expense'), color: const Value('#D47B95')),
-      CategoriesCompanion.insert(name: '居住', icon: '🏠', type: const Value('expense'), color: const Value('#F7D4DE')),
-      CategoriesCompanion.insert(name: '医疗', icon: '💊', type: const Value('expense'), color: const Value('#C96B85')),
-      CategoriesCompanion.insert(name: '教育', icon: '📚', type: const Value('expense'), color: const Value('#B85A75')),
-      CategoriesCompanion.insert(name: '其他', icon: '📌', type: const Value('expense'), color: const Value('#A89AA0')),
-      // Income categories
-      CategoriesCompanion.insert(name: '工资', icon: '💼', type: const Value('income'), color: const Value('#5BB892')),
-      CategoriesCompanion.insert(name: '奖金', icon: '🎁', type: const Value('income'), color: const Value('#7FD0AE')),
-      CategoriesCompanion.insert(name: '理财', icon: '📈', type: const Value('income'), color: const Value('#3D9472')),
-      CategoriesCompanion.insert(name: '兼职', icon: '💪', type: const Value('income'), color: const Value('#A8DCC2')),
-      CategoriesCompanion.insert(name: '其他', icon: '📌', type: const Value('income'), color: const Value('#E8C4A0')),
+      // Expense categories（sortOrder 0..7）
+      CategoriesCompanion.insert(name: '餐饮', icon: '🍜', type: const Value('expense'), color: const Value('#E88BA3'), sortOrder: const Value(0)),
+      CategoriesCompanion.insert(name: '交通', icon: '🚗', type: const Value('expense'), color: const Value('#E8C4A0'), sortOrder: const Value(1)),
+      CategoriesCompanion.insert(name: '购物', icon: '🛒', type: const Value('expense'), color: const Value('#F2B8C8'), sortOrder: const Value(2)),
+      CategoriesCompanion.insert(name: '娱乐', icon: '🎮', type: const Value('expense'), color: const Value('#D47B95'), sortOrder: const Value(3)),
+      CategoriesCompanion.insert(name: '居住', icon: '🏠', type: const Value('expense'), color: const Value('#F7D4DE'), sortOrder: const Value(4)),
+      CategoriesCompanion.insert(name: '医疗', icon: '💊', type: const Value('expense'), color: const Value('#C96B85'), sortOrder: const Value(5)),
+      CategoriesCompanion.insert(name: '教育', icon: '📚', type: const Value('expense'), color: const Value('#B85A75'), sortOrder: const Value(6)),
+      CategoriesCompanion.insert(name: '其他', icon: '📌', type: const Value('expense'), color: const Value('#A89AA0'), sortOrder: const Value(7)),
+      // Income categories（sortOrder 0..4）
+      CategoriesCompanion.insert(name: '工资', icon: '💼', type: const Value('income'), color: const Value('#5BB892'), sortOrder: const Value(0)),
+      CategoriesCompanion.insert(name: '奖金', icon: '🎁', type: const Value('income'), color: const Value('#7FD0AE'), sortOrder: const Value(1)),
+      CategoriesCompanion.insert(name: '理财', icon: '📈', type: const Value('income'), color: const Value('#3D9472'), sortOrder: const Value(2)),
+      CategoriesCompanion.insert(name: '兼职', icon: '💪', type: const Value('income'), color: const Value('#A8DCC2'), sortOrder: const Value(3)),
+      CategoriesCompanion.insert(name: '其他', icon: '📌', type: const Value('income'), color: const Value('#E8C4A0'), sortOrder: const Value(4)),
     ];
 
     for (final category in defaultCategories) {
@@ -127,30 +144,56 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
-  // Category queries
-  Future<List<Category>> getAllCategories() => select(categories).get();
+  // Category queries（V3.3 B4：统一按 sortOrder 升序、id 升序展示）
+  Future<List<Category>> getAllCategories() => (select(categories)
+        ..orderBy([
+          (c) => OrderingTerm.asc(c.sortOrder),
+          (c) => OrderingTerm.asc(c.id),
+        ]))
+      .get();
 
-  Stream<List<Category>> watchAllCategories() => select(categories).watch();
+  Stream<List<Category>> watchAllCategories() => (select(categories)
+        ..orderBy([
+          (c) => OrderingTerm.asc(c.sortOrder),
+          (c) => OrderingTerm.asc(c.id),
+        ]))
+      .watch();
 
   Future<Category?> getCategoryById(int id) =>
       (select(categories)..where((c) => c.id.equals(id))).getSingleOrNull();
 
   // Get categories filtered by type ('expense' or 'income')
-  Future<List<Category>> getCategoriesByType(String type) =>
-      (select(categories)..where((c) => c.type.equals(type))).get();
+  Future<List<Category>> getCategoriesByType(String type) => (select(categories)
+        ..where((c) => c.type.equals(type))
+        ..orderBy([
+          (c) => OrderingTerm.asc(c.sortOrder),
+          (c) => OrderingTerm.asc(c.id),
+        ]))
+      .get();
 
   // Watch categories filtered by type
   Stream<List<Category>> watchCategoriesByType(String type) =>
-      (select(categories)..where((c) => c.type.equals(type))).watch();
+      (select(categories)
+            ..where((c) => c.type.equals(type))
+            ..orderBy([
+              (c) => OrderingTerm.asc(c.sortOrder),
+              (c) => OrderingTerm.asc(c.id),
+            ]))
+          .watch();
 
-  Future<int> insertCategory(String name, String icon, {String type = 'expense', String color = '#A89AA0'}) =>
-      into(categories).insert(CategoriesCompanion.insert(
-        name: name,
-        icon: icon,
-        type: Value(type),
-        color: Value(color),
-        isDefault: const Value(false),
-      ));
+  // V3.3 (B4)：新增分类 sortOrder 取同类型当前最大值 + 1
+  Future<int> insertCategory(String name, String icon, {String type = 'expense', String color = '#A89AA0'}) async {
+    final existing = await getCategoriesByType(type);
+    final maxOrder = existing.fold<int>(0, (max, c) => c.sortOrder > max ? c.sortOrder : max);
+    return into(categories).insert(CategoriesCompanion.insert(
+      name: name,
+      icon: icon,
+      type: Value(type),
+      color: Value(color),
+      isDefault: const Value(false),
+      sortOrder: Value(maxOrder + 1),
+    ));
+  }
 
   Future<bool> updateCategory(int id, String name, String icon, {String? type, String? color}) async {
     final category = await getCategoryById(id);
@@ -163,11 +206,50 @@ class AppDatabase extends _$AppDatabase {
       color: color ?? category.color,
       isDefault: category.isDefault,
       isHidden: category.isHidden,
+      sortOrder: category.sortOrder, // V3.3 B4：保留排序
     ));
   }
 
   Future<int> deleteCategory(int id) =>
       (delete(categories)..where((c) => c.id.equals(id))).go();
+
+  // ── V3.3 (B4) 分类排序：与同类型相邻分类交换 sortOrder ──────
+
+  /// 上移：与该分类同类型的上一个（sortOrder 更小）交换
+  Future<void> moveCategoryUp(int id) async {
+    final category = await getCategoryById(id);
+    if (category == null) return;
+    final siblings = await getCategoriesByType(category.type);
+    siblings.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final index = siblings.indexWhere((c) => c.id == id);
+    if (index <= 0) return; // 已是第一个
+    final prev = siblings[index - 1];
+    await _swapSortOrder(category.id, prev.id);
+  }
+
+  /// 下移：与该分类同类型的下一个（sortOrder 更大）交换
+  Future<void> moveCategoryDown(int id) async {
+    final category = await getCategoryById(id);
+    if (category == null) return;
+    final siblings = await getCategoriesByType(category.type);
+    siblings.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final index = siblings.indexWhere((c) => c.id == id);
+    if (index < 0 || index >= siblings.length - 1) return; // 已是最后一个
+    final next = siblings[index + 1];
+    await _swapSortOrder(category.id, next.id);
+  }
+
+  Future<void> _swapSortOrder(int aId, int bId) async {
+    final a = await getCategoryById(aId);
+    final b = await getCategoryById(bId);
+    if (a == null || b == null) return;
+    await (update(categories)..where((c) => c.id.equals(aId))).write(
+      CategoriesCompanion(sortOrder: Value(b.sortOrder)),
+    );
+    await (update(categories)..where((c) => c.id.equals(bId))).write(
+      CategoriesCompanion(sortOrder: Value(a.sortOrder)),
+    );
+  }
 
   // Record queries
   Future<List<Record>> getAllRecords() => select(records).get();
@@ -204,6 +286,24 @@ class AppDatabase extends _$AppDatabase {
           ..where((r) => r.recordDate.isBetweenValues(startOfMonth, endOfMonth) & r.type.equals(type))
           ..orderBy([(r) => OrderingTerm.desc(r.recordDate)]))
         .watch();
+  }
+
+  // V3.3 (B3)：统计页分类明细展开——按范围+类型+分类查近期记录（日期倒序，限 N 条）
+  Future<List<Record>> getRecordsByRangeAndCategory(
+    DateTime start,
+    DateTime end,
+    String type,
+    int categoryId, {
+    int limit = 5,
+  }) {
+    return (select(records)
+          ..where((r) =>
+              r.recordDate.isBetweenValues(start, end) &
+              r.type.equals(type) &
+              r.categoryId.equals(categoryId))
+          ..orderBy([(r) => OrderingTerm.desc(r.recordDate)])
+          ..limit(limit))
+        .get();
   }
 
   Future<int> insertRecord(RecordsCompanion record) =>
@@ -432,7 +532,8 @@ class AppDatabase extends _$AppDatabase {
     final raw = customSelect(
       '''
       SELECT c.id AS id, c.name AS name, c.icon AS icon, c.type AS type,
-             c.color AS color, c.is_default AS is_default, c.is_hidden AS is_hidden
+             c.color AS color, c.is_default AS is_default, c.is_hidden AS is_hidden,
+             c.sort_order AS sort_order
       FROM categories c
       JOIN records r ON r.category_id = c.id
       WHERE r.record_date >= ? AND c.type = ?
@@ -456,6 +557,7 @@ class AppDatabase extends _$AppDatabase {
             color: row.read<String>('color'),
             isDefault: row.read<bool>('is_default'),
             isHidden: row.read<bool>('is_hidden'),
+            sortOrder: row.read<int>('sort_order'),
           )).toList();
     });
   }

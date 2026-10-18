@@ -68,9 +68,17 @@ class $CategoriesTable extends Categories
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_hidden" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _sortOrderMeta =
+      const VerificationMeta('sortOrder');
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+      'sort_order', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   @override
   List<GeneratedColumn> get $columns =>
-      [id, name, icon, type, color, isDefault, isHidden];
+      [id, name, icon, type, color, isDefault, isHidden, sortOrder];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -112,6 +120,10 @@ class $CategoriesTable extends Categories
       context.handle(_isHiddenMeta,
           isHidden.isAcceptableOrUnknown(data['is_hidden']!, _isHiddenMeta));
     }
+    if (data.containsKey('sort_order')) {
+      context.handle(_sortOrderMeta,
+          sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta));
+    }
     return context;
   }
 
@@ -135,6 +147,8 @@ class $CategoriesTable extends Categories
           .read(DriftSqlType.bool, data['${effectivePrefix}is_default'])!,
       isHidden: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_hidden'])!,
+      sortOrder: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}sort_order'])!,
     );
   }
 
@@ -152,6 +166,7 @@ class Category extends DataClass implements Insertable<Category> {
   final String color;
   final bool isDefault;
   final bool isHidden;
+  final int sortOrder;
   const Category(
       {required this.id,
       required this.name,
@@ -159,7 +174,8 @@ class Category extends DataClass implements Insertable<Category> {
       required this.type,
       required this.color,
       required this.isDefault,
-      required this.isHidden});
+      required this.isHidden,
+      required this.sortOrder});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -170,6 +186,7 @@ class Category extends DataClass implements Insertable<Category> {
     map['color'] = Variable<String>(color);
     map['is_default'] = Variable<bool>(isDefault);
     map['is_hidden'] = Variable<bool>(isHidden);
+    map['sort_order'] = Variable<int>(sortOrder);
     return map;
   }
 
@@ -182,6 +199,7 @@ class Category extends DataClass implements Insertable<Category> {
       color: Value(color),
       isDefault: Value(isDefault),
       isHidden: Value(isHidden),
+      sortOrder: Value(sortOrder),
     );
   }
 
@@ -196,6 +214,7 @@ class Category extends DataClass implements Insertable<Category> {
       color: serializer.fromJson<String>(json['color']),
       isDefault: serializer.fromJson<bool>(json['isDefault']),
       isHidden: serializer.fromJson<bool>(json['isHidden']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
     );
   }
   @override
@@ -209,6 +228,7 @@ class Category extends DataClass implements Insertable<Category> {
       'color': serializer.toJson<String>(color),
       'isDefault': serializer.toJson<bool>(isDefault),
       'isHidden': serializer.toJson<bool>(isHidden),
+      'sortOrder': serializer.toJson<int>(sortOrder),
     };
   }
 
@@ -219,7 +239,8 @@ class Category extends DataClass implements Insertable<Category> {
           String? type,
           String? color,
           bool? isDefault,
-          bool? isHidden}) =>
+          bool? isHidden,
+          int? sortOrder}) =>
       Category(
         id: id ?? this.id,
         name: name ?? this.name,
@@ -228,6 +249,7 @@ class Category extends DataClass implements Insertable<Category> {
         color: color ?? this.color,
         isDefault: isDefault ?? this.isDefault,
         isHidden: isHidden ?? this.isHidden,
+        sortOrder: sortOrder ?? this.sortOrder,
       );
   Category copyWithCompanion(CategoriesCompanion data) {
     return Category(
@@ -238,6 +260,7 @@ class Category extends DataClass implements Insertable<Category> {
       color: data.color.present ? data.color.value : this.color,
       isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
       isHidden: data.isHidden.present ? data.isHidden.value : this.isHidden,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
     );
   }
 
@@ -250,14 +273,15 @@ class Category extends DataClass implements Insertable<Category> {
           ..write('type: $type, ')
           ..write('color: $color, ')
           ..write('isDefault: $isDefault, ')
-          ..write('isHidden: $isHidden')
+          ..write('isHidden: $isHidden, ')
+          ..write('sortOrder: $sortOrder')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, name, icon, type, color, isDefault, isHidden);
+      Object.hash(id, name, icon, type, color, isDefault, isHidden, sortOrder);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -268,7 +292,8 @@ class Category extends DataClass implements Insertable<Category> {
           other.type == this.type &&
           other.color == this.color &&
           other.isDefault == this.isDefault &&
-          other.isHidden == this.isHidden);
+          other.isHidden == this.isHidden &&
+          other.sortOrder == this.sortOrder);
 }
 
 class CategoriesCompanion extends UpdateCompanion<Category> {
@@ -279,6 +304,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   final Value<String> color;
   final Value<bool> isDefault;
   final Value<bool> isHidden;
+  final Value<int> sortOrder;
   const CategoriesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -287,6 +313,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     this.color = const Value.absent(),
     this.isDefault = const Value.absent(),
     this.isHidden = const Value.absent(),
+    this.sortOrder = const Value.absent(),
   });
   CategoriesCompanion.insert({
     this.id = const Value.absent(),
@@ -296,6 +323,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     this.color = const Value.absent(),
     this.isDefault = const Value.absent(),
     this.isHidden = const Value.absent(),
+    this.sortOrder = const Value.absent(),
   })  : name = Value(name),
         icon = Value(icon);
   static Insertable<Category> custom({
@@ -306,6 +334,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     Expression<String>? color,
     Expression<bool>? isDefault,
     Expression<bool>? isHidden,
+    Expression<int>? sortOrder,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -315,6 +344,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       if (color != null) 'color': color,
       if (isDefault != null) 'is_default': isDefault,
       if (isHidden != null) 'is_hidden': isHidden,
+      if (sortOrder != null) 'sort_order': sortOrder,
     });
   }
 
@@ -325,7 +355,8 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       Value<String>? type,
       Value<String>? color,
       Value<bool>? isDefault,
-      Value<bool>? isHidden}) {
+      Value<bool>? isHidden,
+      Value<int>? sortOrder}) {
     return CategoriesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -334,6 +365,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       color: color ?? this.color,
       isDefault: isDefault ?? this.isDefault,
       isHidden: isHidden ?? this.isHidden,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 
@@ -361,6 +393,9 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     if (isHidden.present) {
       map['is_hidden'] = Variable<bool>(isHidden.value);
     }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
     return map;
   }
 
@@ -373,7 +408,8 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
           ..write('type: $type, ')
           ..write('color: $color, ')
           ..write('isDefault: $isDefault, ')
-          ..write('isHidden: $isHidden')
+          ..write('isHidden: $isHidden, ')
+          ..write('sortOrder: $sortOrder')
           ..write(')'))
         .toString();
   }
@@ -1150,6 +1186,7 @@ typedef $$CategoriesTableCreateCompanionBuilder = CategoriesCompanion Function({
   Value<String> color,
   Value<bool> isDefault,
   Value<bool> isHidden,
+  Value<int> sortOrder,
 });
 typedef $$CategoriesTableUpdateCompanionBuilder = CategoriesCompanion Function({
   Value<int> id,
@@ -1159,6 +1196,7 @@ typedef $$CategoriesTableUpdateCompanionBuilder = CategoriesCompanion Function({
   Value<String> color,
   Value<bool> isDefault,
   Value<bool> isHidden,
+  Value<int> sortOrder,
 });
 
 final class $$CategoriesTableReferences
@@ -1209,6 +1247,9 @@ class $$CategoriesTableFilterComposer
 
   ColumnFilters<bool> get isHidden => $composableBuilder(
       column: $table.isHidden, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+      column: $table.sortOrder, builder: (column) => ColumnFilters(column));
 
   Expression<bool> recordsRefs(
       Expression<bool> Function($$RecordsTableFilterComposer f) f) {
@@ -1261,6 +1302,9 @@ class $$CategoriesTableOrderingComposer
 
   ColumnOrderings<bool> get isHidden => $composableBuilder(
       column: $table.isHidden, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+      column: $table.sortOrder, builder: (column) => ColumnOrderings(column));
 }
 
 class $$CategoriesTableAnnotationComposer
@@ -1292,6 +1336,9 @@ class $$CategoriesTableAnnotationComposer
 
   GeneratedColumn<bool> get isHidden =>
       $composableBuilder(column: $table.isHidden, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
 
   Expression<T> recordsRefs<T extends Object>(
       Expression<T> Function($$RecordsTableAnnotationComposer a) f) {
@@ -1345,6 +1392,7 @@ class $$CategoriesTableTableManager extends RootTableManager<
             Value<String> color = const Value.absent(),
             Value<bool> isDefault = const Value.absent(),
             Value<bool> isHidden = const Value.absent(),
+            Value<int> sortOrder = const Value.absent(),
           }) =>
               CategoriesCompanion(
             id: id,
@@ -1354,6 +1402,7 @@ class $$CategoriesTableTableManager extends RootTableManager<
             color: color,
             isDefault: isDefault,
             isHidden: isHidden,
+            sortOrder: sortOrder,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -1363,6 +1412,7 @@ class $$CategoriesTableTableManager extends RootTableManager<
             Value<String> color = const Value.absent(),
             Value<bool> isDefault = const Value.absent(),
             Value<bool> isHidden = const Value.absent(),
+            Value<int> sortOrder = const Value.absent(),
           }) =>
               CategoriesCompanion.insert(
             id: id,
@@ -1372,6 +1422,7 @@ class $$CategoriesTableTableManager extends RootTableManager<
             color: color,
             isDefault: isDefault,
             isHidden: isHidden,
+            sortOrder: sortOrder,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (

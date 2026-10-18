@@ -97,9 +97,14 @@ class CategoryManageScreen extends ConsumerWidget {
               color: category.isDefault ? AppColors.textHint : AppColors.primary,
             ),
           ),
-          trailing: category.isDefault
-              ? null
-              : PopupMenuButton<String>(
+          // V3.3 (B4)：上移/下移排序（同类型内）+ 自定义分类菜单
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSortButton(context, ref, category, up: true),
+              _buildSortButton(context, ref, category, up: false),
+              if (!category.isDefault)
+                PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert),
                   onSelected: (value) {
                     if (value == 'edit') {
@@ -113,8 +118,38 @@ class CategoryManageScreen extends ConsumerWidget {
                     const PopupMenuItem(value: 'delete', child: Text('删除')),
                   ],
                 ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSortButton(
+    BuildContext context,
+    WidgetRef ref,
+    Category category, {
+    required bool up,
+  }) {
+    return IconButton(
+      icon: Icon(
+        up ? Icons.arrow_upward : Icons.arrow_downward,
+        size: 18,
+        color: AppColors.textHint,
+      ),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      visualDensity: VisualDensity.compact,
+      tooltip: up ? '上移' : '下移',
+      onPressed: () async {
+        final database = await ref.read(databaseProvider.future);
+        if (up) {
+          await database.moveCategoryUp(category.id);
+        } else {
+          await database.moveCategoryDown(category.id);
+        }
+        // stream emit → 列表自动重建（无需手动刷新）
+      },
     );
   }
 

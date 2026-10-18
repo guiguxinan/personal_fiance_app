@@ -43,6 +43,11 @@ class AppColors {
   static const Color incomeLight = Color(0xFFE0F3EA);
   static const Color warning = Color(0xFFF39C12);
 
+  // V3.3 (B2)：统计页「一句话洞察」卡（按原型 V3.1 insight-card：#FFF6E0→#FBF1D9 渐变、文字 #8A6D2B）
+  static const Color insightBgStart = Color(0xFFFFF6E0);
+  static const Color insightBgEnd = Color(0xFFFBF1D9);
+  static const Color insightText = Color(0xFF8A6D2B);
+
   // Gradient colors（按原型 135deg 三段渐变）
   static const Color expenseGradientStart = Color(0xFFF2A8BC);
   static const Color expenseGradientMid = Color(0xFFE88BA3);

@@ -86,7 +86,7 @@ class SettingsScreen extends ConsumerWidget {
           _buildSettingsItem(
             icon: Icons.info_outline,
             title: '版本信息',
-            subtitle: '轻记 v3.1 (build 2)',
+            subtitle: '轻记 v3.3 (build 3)',
             onTap: null,
           ),
           _buildSettingsItem(

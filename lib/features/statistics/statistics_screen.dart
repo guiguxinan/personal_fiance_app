@@ -8,6 +8,7 @@ import '../../providers/category_provider.dart';
 import '../../providers/database_provider.dart';
 import 'widgets/spending_pie_chart.dart';
 import 'widgets/category_detail_item.dart';
+import 'widgets/insight_card.dart';
 
 // Time granularity enum
 enum TimeGranularity { year, month, day }
@@ -327,6 +328,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     final params = (start: startDate, end: endDate, type: typeStr);
     final summariesAsync = ref.watch(categorySummariesByRangeProvider(params));
     final totalAsync = ref.watch(totalByRangeProvider(params));
+    // V3.3 (B2)：另一类型的总额（洞察卡结余率需要收入+支出）
+    final oppositeTypeStr = recordType == RecordType.expense ? 'income' : 'expense';
+    final oppositeParams = (start: startDate, end: endDate, type: oppositeTypeStr);
+    final oppositeTotalAsync = ref.watch(totalByRangeProvider(oppositeParams));
     // 当前 type 的分类列表（用于环形图色板 / 分类明细查 icon/color）
     final categories = ref.watch(categoriesByTypeProvider(typeStr)).valueOrNull ?? <Category>[];
 
@@ -350,6 +355,19 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             }
             return Column(
               children: [
+                // V3.3 (B2)：一句话洞察卡（总额下方、图表上方；无数据不展示）
+                InsightCard(
+                  incomeTotal: recordType == RecordType.expense
+                      ? (oppositeTotalAsync.valueOrNull ?? 0)
+                      : (totalAsync.valueOrNull ?? 0),
+                  expenseTotal: recordType == RecordType.expense
+                      ? (totalAsync.valueOrNull ?? 0)
+                      : (oppositeTotalAsync.valueOrNull ?? 0),
+                  summaries: summaries,
+                  categories: categories,
+                  periodLabel: periodLabel,
+                  typeLabel: typeLabel,
+                ),
                 SpendingPieChart(
                   summaries: summaries,
                   categories: categories,
@@ -358,7 +376,13 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   isIncome: recordType == RecordType.income,
                 ),
                 const SizedBox(height: 24),
-                _buildCategoryDetails(summaries, recordType, categories),
+                _buildCategoryDetails(
+                  summaries,
+                  recordType,
+                  categories,
+                  startDate,
+                  endDate,
+                ),
                 const SizedBox(height: 32),
               ],
             );
@@ -443,6 +467,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     Map<int, double> summaries,
     RecordType recordType,
     List<Category> categories,
+    DateTime startDate,
+    DateTime endDate,
   ) {
     if (summaries.isEmpty) return const SizedBox.shrink();
 
@@ -479,6 +505,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               category: category,
               amount: entry.value,
               percentage: percentage,
+              recordType: recordType == RecordType.expense ? 'expense' : 'income',
+              startDate: startDate,
+              endDate: endDate,
             );
           }),
         ],
